@@ -1,0 +1,389 @@
+\chapter{Learning the Group Structure of Group Sparse Coding}
+\label{chap:group_sparse_coding}
+
+Sparse coding is a method to decompose a signal into a linear combination of basis functions in an efficient way such that only a few basis coefficients are active (non-zero). It has been suggested as a model for how the brain processes sensory information \cite{ob96, ob97, rd02}, and is also the basis of several signal processing techniques and machine learning models. In standard sparse coding, the L1-penalty imposed on individual unit activity implies factorial Laplacian prior over basis coefficients. However, these coefficients exhibit strong dependencies among one another \cite{zc99, se01, ky09}. One way attempting to capture this statistical dependency is through group sparse coding model in which L1-cost is imposed on the activity of groups of units instead of on individual units. However, most group sparse coding model assume the group structure a priori. Here we show how it can be learned, and applying it to denoising inference task.
+
+Learning the group structure based on maximum likelihood approach required sampling of both latent and input variables from the model, making it computationally expensive. Most group sparse coding models, therefore, assume the group structure a priori. Independent subspace analysis (ISA) \cite{ha00} assumes the group structure to be disjointed (groups do not overlap each other) with the group size fixed. Topographic independent component analysis (topographic ICA) \cite{ha01ica} and topographic sparse coding model \cite{ha01sc} assume that units are lying on a 2-dimensional rectangular grid, and has a 3x3 overlapping group structure. Learning dictionary of such model results in topographic organization of basis functions similar to the topographic map in the primary visual cortex. \textcite{pg10} propose group sparse coding model with a laplacian scale mixture prior in which the sparse penalty hyperparameters can be inferred during the inference of sparse coefficients, but the group structure is still assumed in advance.
+
+There are some past studies which learn the group structure partially. For example, \textcite{ha07} try to find the optimal ISA group size by comparing log-likelihoods among models with various group size. \textcite{zd09} learn the dependency structure units in ICA, but limited to only tree structure.  Hence, to fully learn the group structure in sparse coding is remained an unsolved problem. One may expect the fully learned group to have complex structure with varying group size.
+
+%\textcite{sa11} propose sparse coding model with stuctured lateral inhibition between units. The inhibitions capture higher order statistics similar to the group structure.
+
+One alternative to maximum likelihood for learning the probability distribution of the data is via denoising autoencoder (DAE) \cite{by13}. The idea assumes that the data lies on a manifold embedded in some high dimensional space. DAE learns how to move a noisy data point which is off the manifold back onto the manifold. Hence, it implicitly learn the manifold structure. On the other hand, sparse coding model has been shown as a good model for denoising noisy images \cite{ha99, em06, ob13}, so it can be considered fitting in the DAE framework. Following this logic, we turns the problem of learning hyperperparameters of a sparse coding model by performing maximum likelihood into a supervised one which does not require sampling. The error between reconstructed denoised images and ground truth original images can be back-propagated to learn the group structure quite quickly with the recent development of using GPU in deep learning.
+
+The two goals of this paper are the followings. First, we present a method based on denoising autoencoder framework to learn group structure in sparse coding model. Then, we verify the method by applying it on a toy dataset of which the ground truth group structure is known. Second, we apply the method on whitened natural image dataset to learn its group structure, We try to characterize the structure and also show that it helps the denoising inference task.
+
+This paper is organized as follows. Group sparse coding model are describe in details in Section \ref{sec:model}. Section \ref{sec:learning_group}  describes methods we can use to learn group structure including the proposed method based on denoising autoencoder framework. We also illustrate the intuition behind group structure concept. Section \ref{sec:toy} shows result of applying the method on a toy dataset with known ground truth group structure. Application of the method on natural image dataset, and visualization of the learned group structure are shown in Section \ref{sec:img}. Then, we conclude our result and discuss future directions.
+
+\section{Group Sparse Coding Model}
+\label{sec:model}
+
+In contrast to sparse coding which penalizes L1-norm of individual unit activity, group sparse coding penalizes L1-norm of group activity. We define group activity as a square-root of weighted sum of unit activities square \cite{ha01sc}.
+\begin{equation}
+\label{eq:group_act}
+z_k = \sqrt{\sum_{i=1}^M \Lambda_{ki}s_i^2}
+\end{equation}
+Here $z_k \geq 0$ is the activity of group $k$, and $s_i$ is the $i^{\text{\scriptsize{th}}}$ sparse coefficient. $\Lambda_{ki} \geq 0$ is the connection strength between group $k$ and the $i^{\text{\scriptsize{th}}}$ coefficient, and from now on we will refer to $\Lambda \in \mathbb{R}^{K\times M}$ as the group structure matrix, where $K$ is the number of groups and $M$ is the number of sparse coefficients.
+
+The cost function for group sparse coding model can then be written as
+\begin{equation}
+\label{eq:groupcost}
+E(\boldsymbol{s}, \Phi, \Lambda) = \sum_{\text{dataset}} \left[
+	\|\boldsymbol{x} - \Phi\boldsymbol{s}\|_2^2 +
+	\sum_{k=1}^K z_k
+\right]
+\end{equation}
+where $\boldsymbol{x} \in \mathbb{R}^N$ is vector representing N-dimensional input data; $\boldsymbol{s}$ is a coefficient vector whose components are $s_i$'s in equation \ref{eq:group_act}, and $\Phi \in \mathbb{R}^{N \times M}$ is the sparse coding dictionary. Note that the standard sparse coding is a special case of group sparse coding with $K = M$ and $\Lambda = \lambda^2 I$, where $I \in \mathbb{R}^{M\times M}$ is an identity matrix and $\lambda$ is the sparse penalty constant. Inferring the sparse coefficient can be done by minimizing the cost function with respect to $\boldsymbol{s}$, and dictionary learning can be done by minimizing the cost function with respect to $\Phi$. To avoid the magnitude of each basis function to keep growing during training, we impose a constraint $\sum_j \Phi_{ij} ^ 2 = 1$.
+
+There are several methods for standard sparse coding inference \cite{lh06, rc08, ba09}. The one we use in this work is called iterative shrinkage-thresholding algorithm (ISTA) \cite{di04, ba09}, which is very similar to performing gradient descent on $\boldsymbol{s}$. This method initializes with $\boldsymbol{s}_0 = \boldsymbol{0}$, and then repeats the following update until the value of $\boldsymbol{s}$ converges.
+\begin{equation}
+\boldsymbol{s}_{t+1} = T_{\theta}\left[
+	\left(I - 2\alpha \Phi^T\Phi\right) \boldsymbol{s}_t + 2\alpha \Phi^T \boldsymbol{x}
+\right]
+\end{equation}
+Here $I \in \mathbb{R}^{M \times M}$ is an identity matrix, $\alpha$ is a scalar hyperparameter controlling the update rate, and $T_{\theta}[u]$ is the following soft-thresholding function
+\begin{equation}
+T_{\theta}[u] = \begin{cases}
+	u - \theta &\text{if $u > \theta$}\\
+	u + \theta &\text{if $u < -\theta$}\\
+	0 &\text{otherwise}
+\end{cases}
+\label{eq:thresh_fn}
+\end{equation}
+We choose ISTA as a method to infer $\boldsymbol{s}$ because the update equation can be thought of as a recurrent neural network (RNN), of which the error can easily be back-propagated through time.
+
+In standard sparse coding, the threshold is constant $\theta = \alpha\lambda$. In group sparse coding, this threshold is different for each unit, and it adapts during inference due to the group activity.
+\begin{equation}
+\label{eq:groupthreshold}
+\theta_i =
+	\alpha s_i \sum_{k=1}^K \frac{\Lambda_{ki}}{z_k}
+\end{equation}
+The interpretation of equation (\ref{eq:groupthreshold}) is that the threshold of a unit is lowered by the group activities which the unit belongs to. This leads to cooperative interaction between units in the same group.
+
+Dictionary learning in group sparse coding is exactly the same as in standard sparse coding since $\Phi$ only appears in the reconstruction terms in the cost function (eq. \ref{eq:groupcost}). It can be achieved by gradient descent method leading to the following learning rule.
+\begin{equation}
+\label{eq:grad_phi}
+\Delta\Phi \propto -\frac{\partial{E}}{\partial{\Phi}}
+           = (\boldsymbol{x} - \Phi\boldsymbol{s})\boldsymbol{s}^T
+\end{equation}
+
+\section{Learning Group Structure}
+\label{sec:learning_group}
+
+In this work, we are proposing a method to learn the group structure matrix $\Lambda$ for sparse coding model without need to perform sampling. We will first show why sampling is required to learn $\Lambda$ in maximum likelihood method. Then, we describe how sparse coding model can be view as a DAE, enabling $\Lambda$ to be trained in a supervised fashion by back-propagating denoising error through the network. Finally, we illustrate a simple example to give an intuition about the group structure as well as the process of adapting it to the data.
+
+\subsection{The Challenge of Learning $\Lambda$ with Maximum Likelihood}
+
+In section \ref{sec:model}, we define group sparse coding from an optimization point of view by specifying its cost function. It is obvious that minimizing the cost function with respect to $\Lambda$ will result in a trivial solution of which every matrix element is equal to zero. The reason is that partition function terms are not taken into account in the cost function, since we usually have the hyperparameter values fixed. The model must be view from a probabilistic standpoint \cite{ob97} if we intend to learn $\Lambda$ with gradient based method. Given the model, the probability distribution of a data point can be written as
+\begin{align}
+p(\boldsymbol{x}) &= \int p(\boldsymbol{x}|\boldsymbol{s})
+					 p(\boldsymbol{s}) d\boldsymbol{s} \\
+\label{eq:p_s}
+p(\boldsymbol{s}) &= \frac{1}{Z_1(\Lambda)}
+					 \exp\left[ -\| \boldsymbol{z} \|_1 \right] \\
+p(\boldsymbol{x|s}) &= \frac{1}{Z_2(\sigma)}
+					   \exp\left[-\frac{\|\boldsymbol{x}-\Phi\boldsymbol{s}\|_2^2}
+					                   {\sigma^2} \right]
+\end{align}
+where $\boldsymbol{z}$ is the group activity vector with component $z_k$ defined in equation (\ref{eq:group_act}); $Z_1(\Lambda) = \int \exp\left[ -\| \boldsymbol{z} \|_1 \right] d\boldsymbol{s}$ and $Z_2(\sigma) = \int\exp\left[-\|\boldsymbol{x}-\Phi\boldsymbol{s}\|_2^2 / \sigma^2 \right] d\boldsymbol{x}$ are partition functions normalizing the probabilities. Performing maximum log-likelihood can yield the group structure matrix  $\Lambda$ best matched a given dataset. The log-likelihood of the data given the model parameters is
+\begin{equation}
+\mathcal{L}(\boldsymbol{x}; \Phi, \sigma, \Lambda) = \log\int
+	p(\boldsymbol{x|s}) p(\boldsymbol{s}) d\boldsymbol{s}
+\end{equation}
+Gradient ascent learning rule for $\Lambda$, derived in appendix \ref{app:mle}, gives us the following.
+\begin{equation}
+\label{eq:lambdaupdate}
+\Delta\Lambda_{ki} \propto
+	\left< s_i^2 / z_k \right>_{p(\boldsymbol{s})} -
+	\left< s_i^2 / z_k \right>_{p(\boldsymbol{s}|\boldsymbol{x})}
+\end{equation}
+where $\left< u \right>_{p(v)}$ denotes the expected value of $u$ over the probability distribution $p(v)$. Both terms possess no analytical forms, thus require sampling to be estimated, making computing an update for $\Lambda$ expensive. To avoid sampling, we will view sparse coding as an RNN which denoise input data.
+
+\subsection{Denoising Autoencoder Method for Learning $\Lambda$}
+\label{sec:method_lambda}
+
+The new method we are proposing for learning the group structure matrix is based on DAE idea \cite{by13}. We will first review what DAE is, and then explain how its framework can be used to learn $\Lambda$.
+
+Autoencoder is a neural network which encodes an input data $\boldsymbol{x} \in \mathbb{R}^N$ into a hidden representation $\boldsymbol{h} = f_e(\boldsymbol{x}; \theta) \in \mathbb{R}^M$. Then, it decodes the hidden representation into a reconstruction of input data $\hat{\boldsymbol{x}} = f_d(\boldsymbol{h}; \theta)$. The objective for learning parameters $\theta$ of an autoencoder is to minimize reconstruction error between $\hat{\boldsymbol{x}}$ and $\boldsymbol{x}$. Usually, there is some kind of constraint on an autoencoder to prevent it from learning identity transformation. For example, if the hidden representation's dimension is smaller than input data's dimension, \textit{i.e.} $M < N$, the autoencoder will function similar to principle component analysis (PCA). If we constrain the hidden representation to be sparse, \textit{i.e.} making $\|\boldsymbol{h}\|_1$ small, it will function similar to sparse coding.
+
+DAE is an autoencoder which tries to remove noise from the input data. Let $\tilde{\boldsymbol{x}} = \boldsymbol{x} + \boldsymbol{\nu}$ be a noisy input created by adding noise $\boldsymbol{\nu}$ to an original input $\boldsymbol{x}$. DAE takes $\tilde{\boldsymbol{x}}$ as an input, and then outputs a denoised signal $\hat{\boldsymbol{x}} = f_d(f_e(\tilde{\boldsymbol{x}}; \theta); \theta)$. The objective function of DAE is to minimize the error between $\boldsymbol{x}$ and $\hat{\boldsymbol{x}}$ by adjusting $\theta$, \textit{i.e.} it tries to reconstruct the actual content well while not reconstructing noise.
+
+DAE can also be view as a generative model \cite{by13, sj15}. The idea start from assuming that input data points are lying on a manifold in $\mathbb{R}^N$. Adding noise to a data point results in diffusing away off the manifold. When we apply DAE on the diffused data point, it tries to pull the data point back onto the manifold. Therefore, DAE learns a vector field pointing from locations with no data point back to the data manifold, implying that it implicitly learn the statistical structure of the data.
+
+On the other hand, sparse coding model has been shown as a good model for image denoising \cite{ha99, em06, ob13}. We assume that group sparse coding, which generalize standard sparse coding is good at image denoising as well, and we will view it in DAE perspective. The encoding function of sparse coding is the inference process, where the network infers the latent variable $\boldsymbol{s}$ from noisy input $\tilde{\boldsymbol{x}}$. In our case, ISTA is used to perform inference.
+\begin{equation}
+\boldsymbol{s}
+	= f_e(\tilde{\boldsymbol{x}}; \{\Phi, \Lambda, \alpha\})
+	= \text{ISTA}(\tilde{\boldsymbol{x}}; \Phi, \Lambda, \alpha)
+\label{eq:sc_encode}
+\end{equation}
+The decoding function the network's reconstruction of the input from the latent variable.
+\begin{equation}
+\hat{\boldsymbol{x}}
+	= f_d(\boldsymbol{s}; \Phi)
+	= \Phi\boldsymbol{s}
+\label{eq:sc_decode}
+\end{equation}
+
+DAE framework can be used to learn $\Lambda$ as the following. For each input data point, we construct a noisy input by adding gaussian white noise to the original input
+\begin{equation}
+\tilde{\boldsymbol{x}} = \boldsymbol{x} + \boldsymbol{\nu}
+\quad\text{where}\quad
+\boldsymbol{\nu} \sim \mathcal{N}(0, \sigma^2 I)
+\end{equation}
+Here $I$ is an $N\times N$ identity matrix, and $\sigma^2$ is the noise variance which is the same in all directions. We use group sparse coding to denoise $\tilde{\boldsymbol{x}}$ as described in equation (\ref{eq:sc_encode}) and (\ref{eq:sc_decode}). We define DAE's reconstruction error to be square error between $\boldsymbol{x}$ and $\hat{\boldsymbol{x}}$.
+\begin{equation}
+E_{\text{DAE}} = \|\boldsymbol{x} - \hat{\boldsymbol{x}}\|_2^2
+\end{equation}
+Note that in general the cost function can be other form of differentiable error measure. $\Lambda$ can then be learned by doing gradient descent on the DAE's cost function.
+\begin{equation}
+\label{eq:grad_lambda}
+\Delta\Lambda \propto
+	-\frac{\partial E_{\text{DAE}}}{\partial \Lambda}
+\end{equation}
+Calculating this gradient analytically can be complicated, but possible since ISTA is a piece-wise differentiable function. We use automatic differentiation to calculate $\partial E_{\text{DAE}} / \partial \Lambda$ to avoid complication.
+
+We expect this method of learning $\Lambda$ to work because group sparse coding denoising performance should increase when $\Lambda$ better fit the structure of input data. Note that noisy input $\tilde{\boldsymbol{x}}$ is used only for learning $\Lambda$. The process of dictionary learning in equation (\ref{eq:grad_phi}) uses original input $\boldsymbol{x}$.
+
+\subsection{Simple Examples}
+
+To intuitively understand how different values for $\Lambda$ reflect different structure of the data, let us consider the following example. First, for simplicity, suppose that the data lies in a 3-dimensional space \textit{i.e.} $\boldsymbol{x} \in \mathbb{R}^3$. Also, assume that we use a complete code \textit{i.e.} $\boldsymbol{s} \in \mathbb{R}^3$, and the dictionary $\Phi$ is an identity matrix. Hence, the data $\boldsymbol{x}$ has exactly the same representation as the latent variable, \textit{i.e.} $\boldsymbol{x} = \Phi\boldsymbol{s} = \boldsymbol{s}$. Finally, we assume that the power of each data point $\boldsymbol{x}$ is proportional to $\sum_i x_i^2$. If we interpolate between two data points with the same power, it make sense for the interpolated point to have the same power as well. Therefore, in the discussion below when we talk about interpolation, it is done along a curve with constant euclidean distance from the origin.
+
+Consider these three $\Lambda$ matrices.
+\begin{equation}
+\Lambda^{(a)}=
+\begin{bmatrix} 1 & 1 & 1 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{bmatrix}; \quad
+\Lambda^{(b)}=
+\begin{bmatrix} 1 & 1 & 0 \\ 0 & 0 & 1 \\ 0 & 0 & 0 \end{bmatrix}; \quad
+\Lambda^{(c)}=
+\begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}
+\end{equation}
+Writing down the group structure cost (the second term in equation \ref{eq:groupcost}) for each case, we have
+\begin{align}
+E_{\text{group}}^{(a)}&=
+\sqrt{s_1^2 + s_2^2 + s_3^2} \\
+E_{\text{group}}^{(b)}&=
+\sqrt{s_1^2 + s_2^2} + |s_3| \\
+E_{\text{group}}^{(c)}&=
+|s_1| + |s_2| + |s_3|
+\end{align}
+To visualize the cost functions, plots of the iso-cost surface of these three cases when $E_{\text{group}}=1$ are shown in figure \ref{fig:groupisocost}. Now, we explore how difference in group structure cost reflects difference in structure of the data.
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.7]{groupisocost.pdf}
+\end{center}
+\caption{
+Iso-cost surface of different group structure. (a) Surface of $E_{\text{group}}^{(a)}=\sqrt{s_1^2+s_2^2+s_3^2}=1$. (b) Surface of $E_{\text{group}}^{(b)}=\sqrt{s_1^2+s_2^2}+|s_3|=1$. (c) Surface of $E_{\text{group}}^{(c)}=|s_1|+|s_2|+|s_3|=1$.
+}
+\label{fig:groupisocost}
+\end{figure}
+
+In case (a), $E_{\text{group}}^{(a)}$ penalizes L2-norm of the sparse coefficient $\boldsymbol{s}$. This imposes no sparse structure on the data at all. We can see from the plot in figure \ref{fig:groupisocost}(a) that the cost is spherical symmetric, which means data point locating in any direction from the origin are equally probable. Furthermore, the group cost does not change when we interpolate between any two data points with the same power. Hence, the model encourages the reconstruction of any point in $\mathbb{R}^3$ perfectly by interpolating between any basis functions needed.
+
+In case (c), $E_{\text{group}}^{(c)}$ penalizes L1-norm of the sparse coefficient $\boldsymbol{s}$. This is the standard sparse coding model, which says that active bases  should be sparse and independent from each other. The cost function, as we can see from figure \ref{fig:groupisocost}(c), favors the data along the directions of the three basis vectors rather than any other directions. Also, interpolation between two data points lying along different basis directions results in an interpolated point which has higher group cost. Subsequently, the reconstruction of data points in this model tends to push the data points toward one of the basis directions.
+
+Case (b) is a mixed between case (a) and (c). In case (b), a data point has low cost if it either lies in a 2D subspace spanned by basis vectors 1 and 2, or lies along a 1D subspace spanned by basis vector 3. Hence, interpolation between points on the same subspace does not increase group cost, but interpolation between points on different subspaces does.
+
+A model with group cost as in (a), which reconstructs every point in the input domain perfectly, is not useful because it offers no prior on the data at all. However, presuming that all of the model latent variables are sparse and independent from each other, as in the standard sparse coding model (c), sacrifices the ability to interpolate and reconstruct input data accurately. Therefore, we try to adapt $\Lambda$ to fit the input data: finding which basis functions should be used together for interpolation, while keeping the penalty high for reconstructing data points off the manifold.
+
+\section{Results}
+
+\subsection{Toy Dataset}
+\label{sec:toy}
+
+To verify and demonstrate the algorithm for learning the group structure, we apply the algorithm to a toy dataset where the optimal group structure is known. Our toy dataset lives in $\mathbb{R}^3$, and each data point lies either on the xy-plane or on the z-axis. The norm (distance from origin) of each data point is randomized by using the norm of a standard 3D-Gaussian random variable. Figure \ref{fig:toydata}(a) shows example of this dataset.
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.16]{toydata.png}
+\end{center}
+\caption{
+(a) Scatter plot of the toy dataset. (b) Iso-cost contour of the learned group structure.
+}
+\label{fig:toydata}
+\end{figure}
+
+We set our model to have number of units and number of groups equal to input data dimension, \textit{i.e.} $M = K = N = 3$. The dictionary ($\Phi$) and the group matrix ($\Lambda$) learned are the followings.
+\begin{equation}
+\Phi = \begin{bmatrix}
+	 0.079 & 0.997 & 0     \\
+	 0.997 & -0.081 & 0     \\
+	 0     & 0     & 1.000
+\end{bmatrix}; \quad
+\Lambda = \begin{bmatrix}
+	0.122 & 0.122 & 0     \\
+	0.148 & 0.149 & 0     \\
+	0     & 0     & 0.499
+\end{bmatrix}
+\end{equation}
+Since data points either lie on the xy-plane or on the z-axis, one of the basis functions points in the z-direction, while the other two are on the xy-plane and perpendicular to each other. Looking at $\Lambda$ matrix, the first two groups both contain unit one and unit two, whose bases are on xy-plane. The last group contains only unit three whose basis lies along the z-axis. The result is as expected, because we need two bases working together to reconstruct data point on xy-plane. For data point on z-axis, we only need one basis to reconstruct it. The iso-cost contour of this group with $E_{\text{group}} = 1$ is shown in figure \ref{fig:toydata}(b).
+
+We have shown here that the algorithm we describe in section \ref{sec:method_lambda} works very well for the toy dataset. Next we will apply the algorithm to natural image dataset.
+
+\subsection{Natural Image Patches}
+\label{sec:img}
+
+We train group sparse coding model on natural image patch in order to examine the group structure of natural image. Our training set consists of 16$\times$16 image patches extracted from 35 whitened images from the van Hateren's natural image dataset \cite{hj98}. Our testing set are prepared in the same way from different 35 images from the van Hateren dataset. All patches are normalized to have 0 mean, and the variance of pixel intensities are normalize to 1 over the whole dataset. The detail of how we prepare the image patches are described in appendix \ref{app:patch}.
+
+The model we train has input dimension (number of pixels in the input image patch) $N = 256$, number of units $M = 256$, and number of groups $K = 256$. All parameters in the model are trained using stochastic gradient descent with Nesterov's momentum to accelerate the training process \cite{si13}. In each training step, we update basis function dictionary $\Phi$ according to equation (\ref{eq:grad_phi}), and then the group structure $\Lambda$ is updated using the gradient in equation (\ref{eq:grad_lambda}). The gradient in equation (\ref{eq:grad_lambda}) is computed using theano's automatic differentiation \cite{bj10, bf12}. Note that the training uses original images patches as an input when doing basis update, but uses noisy patches when doing group structure update. We train the model with 3 different input noise level, corresponding to the input noisy image patches having signal-to-noise ratio (SNR) equal to 0.0dB, 3.0dB and 6.0dB. The detail of model parameter initialization and learning rate scheduling are described in appendix \ref{app:train}.
+
+After training, we test the model denoising performance with image patches from testing set. Average SNR of denoised image patches is used to measure model performance.
+
+To see how much the learned group structure help denoising natural image patches, we compare our group sparse coding model to the standard sparse coding model and topographic sparse coding model. To make sure all controlled conditions are exactly the same for every model, we create the standard and topographic model by putting constraint on the $\Lambda$ matrices. Constraining $\Lambda$ to be diagonal makes group sparse coding model become equivalent to the standard sparse coding model. We further compare the case in which all diagonal elements are restricted to be the same (Diag-1), and the case in which diagonal elements are allowed to be different (Diag). For topographic model, we constrain $\Lambda$ to be $3\times 3$ overlapping groups. Again, we further compare the case where all non-zero elements of $\Lambda$ are restricted to be the same (3x3-1), and the case where non-zero elements of $\Lambda$ are the same for each group but are allowed to differ for different group (3x3). Finally, we also compare the denoising performance of group sparse coding to a traditional DAE \cite{vp10}. Both the encoder and the decoder of the traditional DAE are single layers of affine transformation (matrix multiplication with addition of bias term) passing through a nonlinearity. We use the thresholding function described in equation (\ref{eq:thresh_fn}) as our nonlinearity here.
+
+The denoising performance are compared in table \ref{tab:denoising_snr}. The first column shows S NR of input signals (lower is noisier), and the rest show SNR of output signals. Fully-learned group sparse coding model performance is better than all of the constrained group sparse coding models. This is expected, since constrained group sparse coding is a specialized case of the full group sparse coding model. However, performance difference between the fully-learned model and the 3x3 model is quite small. Note that the DAE does better than the standard sparse coding model. The reason might be because the encoding and decoding weights of the DAE are trained to denoise noisy images, while the basis function of the sparse coding model is trained to reconstruct original images.
+
+\begin{table}[ht]
+\caption{SNR (in dB) of denoised image patches for different level of input noise}
+\label{tab:denoising_snr}
+\begin{center}
+\begin{tabular}{rrrrrrr}
+\multirow{2}{*}{\bf Input SNR} &
+\multirow{2}{*}{\bf DAE} &
+\multicolumn{4}{c}{\bf Constrained Group-SC} &
+\multirow{2}{*}{\bf \shortstack{Fully \\ Learned}}
+\\
+&
+&
+\multicolumn{1}{c}{\bf Diag-1} &
+\multicolumn{1}{c}{\bf Diag} &
+\multicolumn{1}{c}{\bf 3x3-1} &
+\multicolumn{1}{c}{\bf 3x3} &
+
+\\ \hline
+0.000 & 4.039 & 3.755 & 3.771 & 4.200 & 4.236 & \bf{4.309} \\
+3.000 & 5.776 & 5.541 & 5.593 & 5.996 & 6.059 & \bf{6.121} \\
+6.000 & 7.838 & 7.667 & 7.747 & 8.059 & 8.139 & \bf{8.146} \\
+\end{tabular}
+\end{center}
+\end{table}
+
+Figure \ref{fig:denoising_eg} illustrates examples of denoised images. The first row shows original image patches picked randomly from the test dataset. The second row shows noisy images with SNR = 3.0dB. The third, fourth, and fifth rows show denoised image patches using fully-learned group sparse coding model, topographic model (3x3) and the standard model (Diag), respectively. Although table \ref{tab:denoising_snr} shows that by the numbers, fully-learned model performance is better than both the topographic model and the standard model, visually images denoised by these three models are almost indistinguishable. The reason is 0.5dB difference is too small to be easily perceived.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.285]{denoising_eg_3dB.png}
+\end{center}
+\caption{Example of original image, noisy image and denoised image. The first row shows original image patches. The second row shows noisy image patches. The third, fourth and fifth rows show denoised image patches using fully-learned group sparse coding model, topographic model (3x3) and the standard model (Diag), respectively.}
+\label{fig:denoising_eg}
+\end{figure}
+
+% Because we cannot visually understand the difference between the image denoised with the standard model and the image denoised with the group model, we will analyze the denoised image, $\hat{x}$, by decomposing it into three orthogonal components. The first component, denoted by $\hat{x}_o$, is in the same direction as the original image. The second component, $\hat{x}_n$ is in the same direction as the added noise. Note that because the space is very high dimensional and the noise is random, $\hat{x}_n$ is approximately perpendicular to $\hat{x}_o$. The last component, $\hat{x}_r$, is the residue, \textit{i.e.} $\hat{x}_r = \hat{x} - \hat{x}_o - \hat{x}_n$. We can interpret $\hat{x}_o$ as the original signal reconstructed by the model, $\hat{x}_n$ as the added noise left unremoved, and $\hat{x}_r$ as an error made by the model in mapping the noisy signal back onto the data manifold. Comparing these 3 quantities between the standard and the group sparse coding model, we find the average norm of $\hat{x}_o$ and $\hat{x}_n$ to be similar between the two models. However, the average norm of $\hat{x}_r$ in the standard model is significantly bigger than the one in the group model. This suggests the reason behind the group model superior denoising performance to be its ability to model the data manifold more accurately than the standard model. In contrast, the ability to reconstruct signal and remove noise are roughly the same for the two models.
+
+Next we compare the learned dictionary $\Phi$ of the standard, topographic, and group sparse coding model as well as the the DAE model's decoding weight matrix. Figure \ref{fig:basis} (a), (b), (c) and (d) shows them, respectively, when trained with input SNR of 3.0dB. First observation is that most basis functions of all the models look like 2D Gabor's filter. We can see that there is not much visually noticeable difference between the standard and the group sparse coding model dictionaries. The basis functions of the topographic model are topographically arranged as expected. We notice that the basis functions of the DAE model to have slightly shorter length than the rest.
+
+When the model is trained with lower input SNR, the basis functions tend to contain more low spatial frequency components. This is to be expected because more details of the input images are corrupted by noise. The opposite is also true when we train the model with higher input SNR.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.75]{basis3dB.png}
+\end{center}
+\caption{Basis functions of various models trained with input SNR = 3.0dB. (a) Basis functions of the standard sparse coding model (Diag). (b) Basis functions of the topographic sparse coding model (3x3). (c) Basis functions of our group sparse coding model (Fully Leared). (d) Basis functions of a denoising autoencoder (DAE).}
+\label{fig:basis}
+\end{figure}
+
+Now we try to interpret and understand the learned group structure $\Lambda$. First we look at the basis functions belong to each group. Figure \ref{fig:group_eg} shows all basis functions in randomly chosen groups, when trained with input SNR equal to 3.0dB. In the figure, each column consists of basis functions from each group. The criteria we use for group membership is that unit $j$ belongs to group $k$ if $\Lambda_{kj} \geq 0.1 \max\limits_{\tiny{j}}(\Lambda_{kj})$. From visual inspection, basis functions in the same group tend to have similar location, orientation and spatial frequency.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.75]{groupeg3dB.png}
+\end{center}
+\caption{Subsample of group structure matrix. Each column shows basis functions inside a group. 32 random randomly chosen groups from total of 256 groups are shown here. Group membership criteria is that basis function $j$ belongs to group $k$ if $\Lambda_{kj} \geq 0.1 \max\limits_{\tiny{j}}(\Lambda_{kj})$. The example shown here is from the model trained with input SNR = 3.0dB}
+\label{fig:group_eg}
+\end{figure}
+
+In order to visualize all groups together at the same time, we need to simplify how we display each basis function. We do so by first fitting each basis function to Gabor's filter equation.
+\begin{align}
+	g(x, y) &= a \cdot \exp\left[
+		\left(\frac{x^{\prime}}{\sigma_x}\right) ^ 2 +
+		\left(\frac{y^{\prime}}{\sigma_y}\right) ^ 2
+	\right] \cdot \cos(kx^{\prime} + \phi) \\
+	x^{\prime} &= (x - t_x)\cdot\cos(\theta) - (y - t_y)\cdot\sin(\theta) \\
+	y^{\prime} &= (x - t_x)\cdot\sin(\theta) + (y - t_y)\cdot\cos(\theta)
+\label{eq:gabor}
+\end{align}
+where $a, \sigma_x, \sigma_y, k, \phi, \theta, t_x, t_y$ are parameters of the Gabor's function. The parameter $a$ controls overall amplitude of the filter; $\sigma_x$ controls width while $\sigma_y$ controls lenght of the filter; $k$ controls the filter's spatial frequency; $\phi$ determines phase of the filter; $\theta$ determines the filter's orientation while $t_x$ and $t_y$ determines the filter's location. The fitting is done with least square method.
+
+After fitting all basis functions of group sparse coding model to Gabor's filter equation, we visualize each group as the following. First we draw a visual field corresponded to the space of the input image patch. Then, we draw each basis function belongs to the group as a rectangle oriented with the same orientation of the fitted Gabor's filter $\theta$. We make the length of the rectangle $2\sigma_y$ and the width $\sigma_x$. We fill the rectangle with color representing the value of $\Lambda_{kj}$, going from light purple which represents $\Lambda_{kj} = 0.1\max\limits_{\tiny{j}}(\Lambda_{kj})$ to dark blue which represents $\Lambda_{kj} = \max\limits_{\tiny{j}}(\Lambda_{kj})$. Figure \ref{fig:group_structure} shows the visualization of all groups. Again, we find that basis functions in the same group tend to have similar location, orientation and spatial size.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=1.1]{groupstructure3dB.pdf}
+\end{center}
+\caption{Group visualization (trained at 3.0dB).}
+\label{fig:group_structure}
+\end{figure}
+
+To further investigate the group structure, we measure some of its statistics. Again, we use $\Lambda_{kj} \geq 0.1 \max\limits_{\tiny{j}}(\Lambda_{kj})$ as a criteria for having unit $j$ belongs to group $k$. We then measure group size which is how many units belong to a group. Membership size is defined as how many group a unit belongs to. Group neighbor size is how many other groups share members with the group we are looking at. Finally, unit neighbor size is how many other units a unit connects to through shared groups. Table \ref{tab:group_stat} reports our results in mean$\pm$std format for the learned groups trained with input SNR of 0.0dB, 3.0dB and 6.0dB. We also show these statistics of the 3x3 topographic group and of the standard sparse coding model for comparison.
+
+\begin{table}[ht]
+\caption{Group statistics}
+\label{tab:group_stat}
+\begin{center}
+\begin{tabular}{lrrrrr}
+\multirow{2}{*}{\bf Statistics} &
+\multirow{2}{*}{\bf \shortstack{Standard \\ Model}} &
+\multirow{2}{*}{\bf \shortstack{Topographic \\ Model (3x3)}} &
+\multicolumn{3}{c}{\bf Fully-Learned Models}
+\\
+&&&
+\multicolumn{1}{c}{\bf 0.0dB} &
+\multicolumn{1}{c}{\bf 3.0dB} &
+\multicolumn{1}{c}{\bf 6.0dB}
+\\
+\hline
+Group size 		    & 1	& 9	 & 9.0$\pm$1.5	& 9.4$\pm$1.4	& 8.8$\pm$2.4	\\
+Membership size     & 1	& 9	 & 9.0$\pm$1.7	& 9.4$\pm$2.6	& 8.8$\pm$3.1	\\
+Group neighbor size & 0	& 24 & 30.2$\pm$5.8	& 33.9$\pm$6.5	& 32.3$\pm$10.1	\\
+Unit neighbor size & 0	& 24 & 30.5$\pm$6.1	& 31.4$\pm$6.5	& 29.5$\pm$9.9			
+\end{tabular}
+\end{center}
+\end{table}
+
+From the table, we can see that group size and membership size of the learned group is closed to ones of the 3x3 topographic model which are both 9. However, group neighbor size and unit neighbor size of the learned model are bigger than ones of the 3x3 model, indicating that the fully-learned groups overlaps more.
+
+Topographic sparse coding specifies the group structure such that units that are physically near each other are in the same group. On the contrary, in this work we learn group structure from the data without any constraint from the unit physical locations. We will now use minimum wiring length principle to rearrange unit locations such that units in the same group are near each other.
+
+We create a cost function to minimize in order to get unit locations.
+\begin{multline}
+\label{eq:wirecost}
+E_{\text{\scriptsize{wire}}} =
+	\sum_{i<j \in \mathcal{U}} \exp\left[
+		-\frac{\|\boldsymbol{x}_i - \boldsymbol{x}_j\|_2^2}{2}
+	\right] +
+	\sum_{k<l \in \mathcal{G}} \exp\left[
+		-\frac{\|\boldsymbol{x}_k - \boldsymbol{x}_l\|_2^2}{2}
+	\right] \\
+	+ \mu_1\sum_{i\in\mathcal{U}, k\in\mathcal{G}}
+		\Lambda_{ki} \|\boldsymbol{x}_i - \boldsymbol{x}_k\|_2^2 +
+	\mu_2 \sum_{i\in\mathcal{U}\cup\mathcal{G}} \|\boldsymbol{x}_i\|_2^2
+\end{multline}
+Here $\mathcal{U}$ is the set of units and $\mathcal{G}$ is the set of groups. Each $\boldsymbol{x}_i\in \mathbb{R}^d$ is a physical location of unit or group, where $d$ is the dimension the system is embedded in. The first two exponential terms are unit-unit repellent term and group-group repellent term, respectively. The third term is the wiring cost. The fourth term is a regularization cost to make units and groups stay close to one another and center around the origin. Parameters $\mu_1$ and $\mu_2$ control the trade-off between the four terms.
+
+Figure \ref{fig:minwire} shows locations of units arranged with minimum wiring length principle assuming that the system is embedded in a 2D-space. The dictionary and the group structure used are ones from the fully-learned model trained with input SNR equals to 3.0dB. The wiring cost function is minimize with BFGS method. We set the parameter $\mu_1 = 0.05$ and $\mu_2 = 0.1/|\mathcal{U}|^{2/d}$ ($\mu_2$ is inversely proportional to d-dimensional length scale square). Figure \ref{fig:minwire_vs_d} shows a plot between the wiring cost and embedded dimensionality. We can see that the cost start to plateau when the dimensionality is about 2. This suggests that the learned group structure can be embedded comfortably in 2D space.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.17]{minwire2d.png}
+\end{center}
+\caption{Locations of basis functions shown in this figure are arranged with minimum wiring length principle. The basis and group structure used here are of the fully-learned model trained with input SNR equals to 3.0dB}
+\label{fig:minwire}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.8]{minwire_vs_d.pdf}
+\end{center}
+\caption{A plot showing wiring cost vs. embedded dimensionality. Note that the cost start to plateau when the embedded dimensionality is about 2.}
+\label{fig:minwire_vs_d}
+\end{figure}
+
+\section{Discussions}
+The goal of this study was to show how the group structure of the sparse coding model could be learned by the DAE framework, thus circumventing the computation difficulty associated with the maximum likelihood method. The model ability to learn group structure was validated on a toy dataset where the ground truth is known. Applying the method on natural images dataset reveals the group structure appropriate for natural images: each group contains filters similar in their properties (orientations, frequencies and locations) with average group size of 9, and they are overlapping with each other as opposed to being disjointed.
+
+Even though the fully-learned structure is similar to the topographic structure in many aspects, the ability to learn a group structure from data is very important. For visual modality, it might not seems useful since we have some insight from prior studies on natural image statistics as well as the knowledge on the primary visual cortex. However, in other data modalities where we lack insight, the technique proposed in this study should prove useful. Also, from theoretical neuroscience point of view it is important to have the topographic organization of V1 simple cell receptive fields emerges from applying minimum wiring principle to the learned group structure.
+
+In spite of using the DAE framework, the goal of this work is not denoising per se. The goal of this work is to learn natural image prior by capturing the manifold structure of natural images. As compared to the factorial sparse coding model where individual elements of the code compete, here elements within the same group can cooperate so that continuous change along the manifold, where activity needs transition from one coefficient to another, is better accommodated. The group structure can then provide a constraint to make learning the transport operator on the data manifold \cite{cb09, sj10} better regulated. 
+
+Although the gain in denoising is rather modest, having a better prior of natural images can have myriad applications in different tasks.  For example compressed sensing recovery would benefit from having a stronger prior over the sparse coefficients.  Alternatively in a hierarchical representation the group activity $z_k$ can be used as input to the next layer, such as in \textcite{lq2013}. Note that in this case, the group structure provides learned pooling operation as opposed to using a pre-defined one.
+
+Future works continuing from this study include applying group sparse coding to other data modalities, using group structure learning method to learn better pooling operation in deep network, as well as learning Lie's group transport operator for natural video where the operator is constrained by the group structure.

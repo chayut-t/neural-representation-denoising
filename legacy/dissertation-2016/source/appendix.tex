@@ -1,0 +1,203 @@
+\appendix
+
+\chapter{Learning Group Structure in Group Sparse Coding}
+
+\section{Derivation of Update Rule for the Group Structure Matrix ($\Lambda$) in Maximum Likelihood Method}
+\label{app:mle}
+
+Gradient ascent updating rule for $\Lambda$ is
+\begin{align}
+\begin{split}
+\Delta\Lambda
+	&\propto \frac{\partial}{\partial\Lambda}
+		\mathcal{L}(\boldsymbol{x}; \Phi, \sigma, \Lambda) \\
+	&=	\frac{\partial}{\partial\Lambda}\log\int
+		p(\boldsymbol{x|s}) p(\boldsymbol{s}) d\boldsymbol{s} \\
+	&=	\frac{1}{p(\boldsymbol{x})} \int p(\boldsymbol{x}|\boldsymbol{s})
+		\frac{\partial p(\boldsymbol{s})}{\partial\Lambda}d\boldsymbol{s}
+\end{split}
+\end{align}
+Calculating the partial derivative $\partial p(\boldsymbol{s}) / \partial\Lambda$, we have
+\begin{align}
+\begin{split}
+\frac{\partial p(\boldsymbol{s})}{\partial\Lambda}
+	&= \left( \frac{\partial}{\partial\Lambda}\frac{1}{Z_1} \right)
+	   \exp\left[ -\|\boldsymbol{z}\|_1 \right] +
+	   \frac{1}{Z_1}
+	   \left( \frac{\partial}{\partial\Lambda}
+	   \exp\left[ -\|\boldsymbol{z}\|_1 \right] \right) \\
+	&= -\frac{1}{Z_1^2}
+	   \left( \frac{\partial}{\partial\Lambda}Z_1 \right)
+	   \exp\left[ -\|\boldsymbol{z}\|_1 \right] -
+	   \frac{1}{Z_1} \exp\left[ -\|\boldsymbol{z}\|_1 \right]
+	   \left( \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1 \right)\\
+	&= -\frac{1}{Z_1}
+	   \left( \int \frac{\partial}{\partial\Lambda}
+	   \exp\left[ -\|\boldsymbol{z}\|_1 \right]
+	   d\boldsymbol{s} \right)
+	   p(\boldsymbol{s}) -
+	   \left( \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1 \right)
+	   p(\boldsymbol{s}) \\
+	&= \left[
+	   \int \left( \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1 \right)
+	   p(\boldsymbol{s}) d\boldsymbol{s} -
+	   \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	   \right] p(\boldsymbol{s}) \\
+	&= \left[
+	   \left<
+	   \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	   \right>_{p(\boldsymbol{s})} -
+	   \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	   \right] p(\boldsymbol{s})
+\end{split}
+\end{align}
+Plugging $\partial p(\boldsymbol{s}) / \partial\Lambda$ back in to the learning rule to $\lambda$, we get
+\begin{align}
+\begin{split}
+\label{eq:dlldlambda}
+\frac{\partial}{\partial\Lambda} \mathcal{L}(\boldsymbol{x}; \Phi, \sigma, \lambda)
+	&=	\int \left[ \left<
+	    \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	    \right>_{p(\boldsymbol{s})} -
+	    \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	    \right] p(\boldsymbol{s}|\boldsymbol{x}) d\boldsymbol{s} \\
+	&=  \left<
+	    \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	    \right>_{p(\boldsymbol{s})} -
+	    \left<
+	    \frac{\partial}{\partial\Lambda}\|\boldsymbol{z}\|_1
+	    \right>_{p(\boldsymbol{s}|\boldsymbol{x})}
+\end{split}
+\end{align}
+The calculation shown above can be applied to any exponential family distribution with $\boldsymbol{z}$ as a function of $\boldsymbol{s}$ and $\Lambda$. Now we calculate $\partial \|\boldsymbol{z}\|_1 / \partial\Lambda$ for our specific case.
+\begin{align}
+\begin{split}
+\label{eq:dzdlambda}
+\frac{\partial}{\partial\Lambda_{ki}} \|\boldsymbol{z}\|_1
+	&= \frac{\partial}{\partial\Lambda_{ki}}
+	   \sum_l \left[ \sum_j \Lambda_{lj} s_j^2 \right]^{1/2} \\
+	&= \sum_l \left[ z_l^{-1} \left(
+	   \frac{\partial}{\partial\Lambda_{ki}} \sum_j \Lambda_{lj} s_j^2
+	   \right) \right] \\
+	&= \sum_{l, j} z_l^{-1} \delta_{kl} \delta_{ij} s_j^2 \\
+	&= s_i^2 / z_k
+\end{split}
+\end{align}
+Plugging in $\partial \|\boldsymbol{z}\|_1 / \partial\Lambda$ into equation (\ref{eq:dlldlambda}) gives the update rule shown in equation (\ref{eq:lambdaupdate}).
+
+\section{Image Patch Preparation for Training the Group Sparse Coding Model}
+\label{app:patch}
+
+The training set contains patches extracted from the following 35 images in the van Hateren's natural image dataset:
+\[
+\begin{matrix}
+00264& 00315& 00665& 00695& 00735& 00765& 00777& \\
+00944& 00968& 01026& 01042& 01098& 01251& 01306& \\
+01342& 01726& 01781& 02226& 02260& 02262& 02982& \\
+02996& 03332& 03362& 03401& 03451& 03590& 03686& \\
+03751& 03836& 03848& 04099& 04103& 04172& 04207&
+\end{matrix}
+\]
+This is the same list as in \cite{ob13}. The testing set contains patches extracted from the following 35 images in the van Hateren's natural image dataset:
+\[
+\begin{matrix}
+00265& 00316& 00666& 00696& 00736& 00766& 00778& \\
+00945& 00969& 01027& 01043& 01099& 01252& 01307& \\
+01343& 01727& 01782& 02227& 02261& 02263& 02983& \\
+02997& 03333& 03363& 03402& 03452& 03591& 03687& \\
+03752& 03837& 03849& 04100& 04104& 04173& 04208&
+\end{matrix}
+\]
+
+Every full images are preprocessed by the following pipeline. First, we take log of the pixel value which is linear in intensity. Second, the image is cropped keeping the center 1024$\times$1024 pixels, and it is then whitened in frequency domain using the following filter:
+\begin{equation}
+H(f) = f\exp\left[
+	-\frac{f^2}{2f_c^2}
+	\right]
+\end{equation}
+where $f$ is the image spatial frequency in cycle/pixel and $f_c = 0.2375$ is the cutoff frequency. Finally, the image is down sampled by cropping and keeping only the 512$\times$512 center portion of the image in the frequency domain.
+
+Image patches (16$\times$16) are extracted from the full image with the stride of 8 pixels. Each patch is subtracted by the patch mean to make the patch mean 0. Also, each patch is divided by the dataset pixel standard deviation to make the pixel variance 1 over the whole dataset.
+
+\section{Training Details of the Group Sparse Coding Model}
+\label{app:train}
+Every model basis functions are initialized with Gaussian's white noise and are normalize to have normal 1. In the standard and fully-learned model, the group structure matrix is initialized with a diagonal matrix where every diagonal element is set equal to 4. In the topographic model, the the group matrix is initialized with 3$\times$3 overlapping group structure with all non-zero elements set to 4/9.
+
+The ISTA algorithm is run with $\alpha=0.05$ for 150 steps. All models are trained for 50000 iterations. The initial learning rate for the dictionary learning is $\eta_0^{(d)}=0.001$. The initial learning rate for the group structure learning is $\eta_0^{(e)}=0.01,\, 0.005,\, 0.003$ for the input noise level of 0dB, 3dB and 6dB, respectively. The learning rate is annealed with the following schedule:
+\begin{equation}
+\eta = \frac{\eta_0}{1 + i / 1000} 
+\end{equation}
+where $i$ is the training iteration number. The training use Nesterov's momentum with $\mu$ scheduled as the following
+\begin{equation}
+\mu = \min\left(
+	1 - \frac{0.5}{1 + i / 250},\, 0.995
+	\right)
+\end{equation}
+except for the last 5000 iterations where we set $\mu = 0.9$.
+
+
+\chapter{Grid Cells as Analog Error Correcting Attractor Network}
+\section{Training Details of the Attractor Network}
+Every attractor models described in chapter \ref{chap:grid} are trained with the following hyper-parameters.
+\begin{itemize}
+\item Total number of neurons $N=64$.
+\item Unit noise standard deviation $\sigma_u=0.1$ and weight noise standard deviation $\sigma_w=0.1$
+\item The gain for the velocity input $\alpha=100$.
+\item The symmetric weight matrix is constrained to have maximum absolute value of 1. The is not constraint on the anti-symmetric weight matrix.
+\item The time constant $tau=5$, and the networks are run for 50 steps during training. We do not have any truncation of the back-propagation through time.
+\item The networks are trained over 40,000 iterations with mini-batch size of 256.
+\item The weights are updated with gradient descent with momentum
+\begin{equation}
+\mu = \min\left(
+	1 - \frac{0.5}{1 + i / 250},\, 0.995
+	\right)
+\end{equation}
+except for the last 4000 iterations where we set $\mu = 0.9$.
+\item The learning rate is 0.002 for the scalar parameters ($a$, $b$, $c$) and 0.05 for the matrix parameters ($S$, $A$).
+\end{itemize}
+
+
+\chapter{A Short Introduction to Artificial Neural Network and Sparse Coding}
+\label{app:tutorial}
+
+\section{Artificial Neural Network}
+
+Artificial neural networks (ANNs) are a family of models in the field of machine learning inspired by biological neural networks. ANN is constructed from basic units called artificial neurons, connected together. The most popular version of an artificial neuron assumes its output to be a linear combination of its inputs passing through a non-linear function (which can be either deterministic or stochastic):
+\begin{equation}
+y = f\left(\sum_i w_i x_i + b\right)
+\end{equation}
+Here $y$ is the neuron output; $x_i$'s are its inputs; $w_i$'s are the linear combination weights, $b$ is the bias term, and $f$ is a non-linear function. Common choices for this non-linear function include a sigmoid function, a hyperbolic tangent function, and a rectifying function. We can imagine that connecting many artificial neurons together (maybe with feedback connections) can produce a very complex behavior.
+
+ANNs are usually used for approximating a complex high dimensional function. For example in image recognition, ANN is used to approximate a function which maps from image pixels to image classes. In robotics, ANN can be used as a trainable action policy which maps from the robot state to its actions \text{i.e. signal to the actuators}. Some ANN can be used to approximate a stochastic function with no input. For example, a Boltzmann machine is a generative model that can model a data distribution.
+
+ANNs can be trained with either supervised learning, unsupervised learning, or reinforcement learning. Here we will focus only on supervised learning. Supervised learning requires that we have a teacher signal which is the desired output corresponding to each input in the training dataset. With the teacher signal, we can write a cost function that measure the difference between the actual output from the ANN and the desired output, \textit{e.g} square error, or cross-entropy. Then, the ANN parameters which is its connection weights can be trained with gradient descent method: each parameter is updated with the derivative of the cost function with respect to the parameter. Note that the derivative can be calculated, because every function composed to produce the network output is piece-wise differentiable. This method is also called back-propagation since by doing gradient descent, the error is propagated back throughout the network.
+
+\section{Sparse Coding}
+
+Sparse coding is an artificial neural network with an unsupervised learning objective. Note that usually unsupervised learning is used for discovery the structure in the data, or extracting a meaningful feature. Given a data point $\boldsymbol{x}^{(l)} \in \mathbb{R}^N$ in a dataset $\{\boldsymbol{x}^{(l)}\}_{l=1,\ldots,L}$, the sparse coding model tries to represent it as a linear combination of basis functions $\left\{ \boldsymbol{\phi}_1, \boldsymbol{\phi}_2, \ldots, \boldsymbol{\phi}_M\ \right\}$ where each $\boldsymbol{\phi}_i \in \mathbb{R}^N$. 
+\begin{equation}
+\label{eq:generative}
+\boldsymbol{x}^{(l)} =
+	\sum_{i=1}^M s_i^{(l)} \boldsymbol{\phi}_i + \boldsymbol{\nu}^{(l)}
+\end{equation}
+Here each $s_i^{(l)} \in \mathbb{R}$ is a sparse coefficient or unit activity, and $\boldsymbol{\nu}^{(l)} \in \mathbb{R}^N$ is the residual term capturing variation not described by the linear combination. The goal of sparse coding is that for each data point $\boldsymbol{x}^{(l)}$, we want to find values of $\{s_i^{(l)}\}_{i=1,\ldots,M}$ which make the residual term small while only a few coefficients are active (non-zero). This process is called inference. Also, we want to learn a set of basis functions which best fit the dataset. This process is called dictionary learning.
+
+The goal of sparse coding can be made more precise by viewing the problem as an optimization problem. The cost function of sparse coding is
+\begin{equation}
+\label{eq:sccost_l0}
+E = \sum_{l} \left[
+	\|\boldsymbol{x}^{(l)} - \Phi\boldsymbol{s}^{(l)}\|_2^2 +
+	\lambda \|\boldsymbol{s}^{(l)}\|_0
+\right]
+\end{equation}
+Here we rewrite the linear combination as a matrix product, \textit{i.e.} $\Phi = [\boldsymbol{\phi}_1, \boldsymbol{\phi}_2, \ldots, \boldsymbol{\phi}_M] \in \mathbb{R}^{N \times M}$ and $\boldsymbol{s}^{(l)} = [s_1^{(l)}, s_2^{(l)}, \ldots, s_M^{(l)}]^T \in \mathbb{R}^{M \times 1}$. The inference process, finding the best sparse coefficients representing $\boldsymbol{x}^{(l)}$, then corresponds to minimizing the cost function $E$ with respect to $\boldsymbol{s}^{(l)}$. Dictionary learning, adapting basis functions to the dataset, then corresponds to minimizing the cost function with respect to the dictionary $\Phi$. The hyper-parameter $\lambda$ controls a trade-off between reconstruction error (first term) and sparse cost (second term). The operator $\|\cdot\|_2$ denotes $\ell^2$-norm, and $\|\cdot\|_0$ denotes $\ell^0$-(pseudo)norm which is the number of non-zero elements. Optimizing this cost function is an NP-hard problem because of the $\ell^0$-norm term, so we usually use $\ell^1$-norm as a proxy.
+\begin{equation}
+\label{eq:sccost}
+E = \sum_{l} \left[
+	\|\boldsymbol{x}^{(l)} - \Phi\boldsymbol{s}^{(l)}\|_2^2 +
+	\lambda \|\boldsymbol{s}^{(l)}\|_1
+\right]
+\end{equation}
+It has been shown that this is a good approximation for sparse coding when the data actually has an underlying sparse structure \cite{dd06}.
+
+There are many methods for inference and dictionary learning. In the study in chapter \ref{chap:group_sparse_coding}, we used an iterative shrinkage-thresholding algorithm (ISTA) for inference, and gradient descent for dictionary learning. Sparse coding has many application in image signal processing, for example, image analysis, compressive sensing, image restoration. In neuroscience, sparse coding can be used as a model for how the brain processes sensory information. In our study in chapter \ref{chap:group_sparse_coding}, we focus on using sparse coding to model natural image statistics.

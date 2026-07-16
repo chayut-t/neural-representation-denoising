@@ -1,0 +1,16 @@
+% (This file is included by thesis.tex; you do not latex it by itself.)
+
+\begin{abstract}
+
+% The text of the abstract goes here.  If you need to use a \section
+% command you will need to use \section*, \subsection*, etc. so that
+% you don't get any numbering.  You probably won't be using any of
+% these commands in the abstract anyway.
+
+Understanding of how the brain works and how it can solve difficult problems like image recognition is very important, especially for the progress in developing an autonomous intelligent system. Even though we have a lot of experimental data in neuroscience, we are lack of theories which can glue all the observations together. One approach to understand the brain is to investigate the representation of sensory information in the brain at each stage, and try explains it with some computational level principle, for example an efficient coding principle. This thesis follows this approach.
+
+In this thesis, I use the denoising autoencoder framework to approach two unsolved problems in Computational Neuroscience. The first problem is learning the group structure in the group sparse coding model. I propose that it is possible to learn the group structure using gradient descent with a data denoising objective function. To verify the method, I train a model on the van Hateren's natural image dataset. The model with the learned group structure shows an improvement in denoising performance 15\% (SNR) over the regular sparse coding model. Moreover, the group structure learned groups together sparse coding basis functions with similar location, orientation and scale.
+
+The second problem is to understand why we have grid cells. I proposed that a population of place cells and grid cells should be modeled as an attractor network with noisy neurons. Furthermore, this attractor network can be trained with the denoising autoencoder framework to memorized a location in 1D space (simplification of the actual problem where the location is in 2D space). I show that the retrieved location accuracy of the network with both place cells and grid cells is higher than the network with place cells alone. The performance difference is due to the activity of the grid cells acts as an efficient error-correcting code.
+
+\end{abstract}

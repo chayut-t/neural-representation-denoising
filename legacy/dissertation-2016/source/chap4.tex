@@ -1,0 +1,49 @@
+\chapter{Conclusions}
+
+\label{chap:conclusion}
+
+\section{Summary of Contributions}
+
+In in thesis, we present two studies both of which try to gain more understanding in neural representation.
+
+In the first study, we proposed a new method for learning a group structure in group sparse coding. Previously, the group structure in group spare coding is usually assumed a priori instead of being learned from the data. Learning the group structure using maximum likelihood is possible, but it needs sampling which is computational expensive. We propose that the group structure matrix can be trained using gradient descent with data denoising as an objective function. We verify that this proposal actually works by training a model on whitened natural image dataset. The model learn a meaningful group structure, \textit{i.e.} the basis functions with similar location, scale, and orientation are group together. Moreover, the model with learned group structure can denoise an image better than the model with pre-determined group structure, implying that learning the group helps the model fit the data.
+
+In the second study, we try to find an explanation of why we have grid cells. There is a hypothesis that grid cells play role in self location representation and navigation. However,  this can be achieved with having place cells alone. We propose that the activity of grid cells acts like an analog error-correcting code when a value is needed to be memorized by a network of noisy neurons. Also, we propose that this mechanism can be implemented with an attractor network. The verify our proposal, first we show that it is possible to train an attractor network to memorized the desired activity pattern with the denoising autoencoder framework. Then, we compare between an attractor network where all neurons are place cells, and another attractor network which has the mix of both place cells and grid cells. We show that if a location in 1D space is encoded and stored into the network, the accuracy of the retrieved location is better for the place-grid network comparing to the place-only network. Hence, it proves that grid cells help correct the error.
+
+\section{Epilogue}
+
+I would like to conclude this thesis by emphasizing the important ideas presented here. Also, I would like to share some of my personal opinion on understanding intelligence.
+
+The first important idea in this thesis is the denoising autoencoder framework. It is an interesting method for learning the structure of the data. The method does not required the data to be labeled, which makes it easy to have a lot of data. However, the method trains the model in a supervised manner, so the training is simple and relatively fast. The caveat is that after we have trained a model, how can we make the model useful other than using it for denoising.
+
+The second important idea is that a recurrent neural network (RNN) can be used to denoise an input signal or memorize an activity pattern using its symmetric recurrent weights. Moreover, with an anti-symmetric weights an RNN can continuously transform an activity pattern. We can understand how an RNN achieve this starting by considering the following equation:
+\begin{equation}
+\label{eq:matrix_exp}
+x(t) = e^{Mt} x(0)
+\end{equation}
+where $x \in \mathbb{R}^N$ is a vector, $t \in \mathbb{R}$ represents time, and $M \in \mathbb{R}^{N\times N}$ is a matrix. If $M$ is a symmetric matrix, then the component along an eigenvector of $M$ with an eigenvalue bigger than 1 is exponentially amplify, and the component along an eigenvector with an eigenvalue less than 1 is exponentially diminished. However, if $M$ is an anti-symmetric matrix, $e^{Mt}$ will be an orthogonal matrix, which only rotates $x$ and preserve its norm.
+
+Now suppose that $\delta t$ is very small. Equation \ref{eq:matrix_exp} can be approximate as
+\begin{equation}
+\label{eq:matrix_exp_taylor}
+x(t+\delta t) = (I + Mt) x(t)
+\end{equation}
+where $I \in \mathbb{R}^{N\times N}$ is an identity matrix. Next, we add a bit of non-linearity to equation \ref{eq:matrix_exp_taylor}.
+\begin{equation}
+\label{eq:matrix_exp_norm}
+x(t+\delta t) = \frac{(I + Mt) x(t)}{\|(I + Mt) x(t)\|_2}
+\end{equation}
+The normalization makes the L2-norm of $x$ always equal to 1. We can think of $x$ as a vector which represent some information. Because of the normalization, it will always be on an $(N-1)$-sphere. The symmetric part of the matrix $M$ will play role in removing unwanted component, and keeping the desired component in $x$. The anti-symmetric part of $M$ will play role in moving $x$ around on the $(N-1)$-sphere. We can think of this dynamics as a data manifold model, where the symmetric part of $M$ denoises that data while the anti-symmetric part is the manifold transport operator.
+
+Finally, we will make equation \ref{eq:matrix_exp_norm} look more like a recurrent neural network.
+\begin{align}
+\label{eq:matrix_exp_rnn}
+x(t+\delta t) &= (1 - \epsilon) x(t) + (S + A)t \cdot f(t) \\
+f(t) &= \sigma\left[x(t)\right]
+\end{align}
+Here we think of $x$ like an internal state of a population of neurons and $f$ is the population activity. They are related by a squashing non-linearity $\sigma$ which has some linear regime (the squashing removes the need to normalize). We separate $M$ into $S$ (symmetric part) and $A$ (anti-symmetric part), and $\epsilon$ is the leaking of the internal state. We can see that equation \ref{eq:matrix_exp_rnn} is somewhat similar to equation \ref{eq:matrix_exp_norm}.
+
+What I am trying to communicate here is that a recurrent neural network with both symmetric and anti-symmetric connection can be used to model a data manifold with a transport operator. In natural image sparse coding, $f$ would be the sparse coefficient, $S$ would be an inhibition between similar basis functions, and $A$ would be an image transformation. The network would model a natural image manifold. In place-grid cell network, $f$ would be the place-grid cell activity, $S$ would be the connection that do error-correction and $A$ would be the connecting for moving the stored location. The place-grid network would then model the manifold of the animal location.
+
+The last point I would like to make here is that being able to understand the representation inside a neural network, both biological and artificial, is important. We start from knowing that the brain can do a variety of amazing tasks, but we do not understand how the brain accomplishes them. With the recent progress in ANN, now the machine can perform much closer to human-level in many of the difficult tasks, for example, in object recognition, speech recognition, or in playing go. However, if we do not understand what happens inside the ANN, we would have just create another system which we do not understand. I believe that more theory of how ANN works is needed, both in general and in specific domains.
+

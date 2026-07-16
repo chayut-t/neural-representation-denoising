@@ -1,0 +1,279 @@
+\chapter{Grid Cells as Analog Error Correcting Attractor Network}
+\label{chap:grid_cells}
+
+In the rat's brain, neuroscientists have discovered multiple kinds of neurons whose responses depend on the rat location. One kind of these neurons is called ``place cell" because this kind of cell response to a single location in space \cite{oj71}. Each place cell has a specific location which when the rat is in, the cell's firing rate significantly increase. Another kind of neuron responses to multiple locations in space in a periodic pattern. In fact, the pattern of locations is a triangular grid which makes it very intriguing. This kind of neuron is called ``grid cell" \cite{ht05}. These discoveries beg questions about the functional purposes of these neurons, and why these neurons have spatial receptive field structure we observe, \textit{i.e.} ``place" and ``grid" pattern receptive fields.
+
+Since the responses place cells and grid cells depend on spatial location of the rat, many neuroscientists suspect that these neurons play an important role in spatial representation in the brain, including self-location representation and path integration for navigation \cite{me08}. There are many models trying to explain the behavior of place cells and grid cells base on an assumption that this neuron population provide spatial representation for an organism. Attractor network is one class of model which can explains how the network of place cells \cite{ss02} or grid cells \cite{by09} can have stabilized activity patterns which means it can memorize locations. Also, it explains how the network can use velocity information to change the activity pattern in order to move the memorized location to a new one correctly.
+
+However, attractor network model does not explain why grid cells have grid pattern receptive fields. Moreover, recent studies show that grid cells are organized into modules, where each module contains grid cells with similar grid scale, \textit{i.e.} the scales are discretized by the modules. Furthermore, the ratio between scales of subsequent modules is a constant, \textit{i.e.} if we name the sorted module scales M1, M2, M3, M4 and so on, the studies find that the scale ratio M1:M2, M2:M3, M3:M4 and so on, are approximately the same \cite{sh12, me14}. These findings make grid cells even more fascinating.
+
+In attempt to explain the grid code, many mathematical models explain grid pattern as an efficient way to encode location, where efficiency here is defined as accuracy of location memorized given a fixed number of neurons. One study views grid code as an analog error correcting code where grid cell population activity of $N$ neurons may be thought of as an $N$ dimensional vector \cite{ss11}. Since all possible locations are in an $\mathbb{R}^2$ space, the population activity of possible location must be on a two-dimensional manifold embedded in $\mathbb{R}^N$. The study suggests that grid code with multiple grid scale can emerged from packing the manifold in the high dimensional space as efficiently as possible without having two different locations be confused with one another. Another study suggests that grid cell coding scheme with multiple grid scale is a hierarchical coding, and predicts the optimal hierarchical scale ratio to be approximately $1.44$ which agrees very well with experiments \cite{wx13}.
+
+Even though the attractor network does not explain grid cell receptive field pattern or its discrete hierarchical scale, it explains how place cell or grid cell population can be used for representing a location and perform path integration, as well as suggests how the network can be implemented. One problem with attractor network is that it usually requires the connection weights between neurons to be very precise to perform well. Also, it usually neglect that fact that neurons and synapses are noisy devices.
+
+In our study, we first propose a method for learning the connection weights for an attractor network that are robust to noise. This method is based on a denoising autoencoder framework. Second, we propose a hypothesis of how population of neurons with grid pattern receptive fields can help the brain memorizes a location and perform path integration accurately. We simplify our study by working only on encoding locations in 1 dimensional space with in the range $[0, 1]$. Generalization to an arbitrary range or to 2 dimensional space is not difficult, and we will explain that is the discussion section. Finally, we compare the performance between an attractor network with place cells only and an attractor network with both place cells and grid cells (with the same total number of neurons). We show that having grid cells improves accuracy of the location retrieved from the network activity.
+
+\section{Attractor Model}
+\label{sec:model}
+
+An attractor network is a recurrent neural network which evolves toward a stable fixed point. Hopfield's network \cite{hj82} is one well-known example where the fixed point serves as content-addressable memory.
+
+Our model is inspired by the model for head direction cell ensemble proposed by \textcite{zk96}. The continuous time network dynamics can be describe by the following differential equation.
+\begin{equation}
+\label{eq:attractor}
+\tau\frac{du}{dt} =
+	-u + (S_{\text{\scriptsize{eff}}} + \rho_S)f + \rho_u
+\end{equation}
+Here $u \in \mathbb{R}^N$ and and $f \in \mathbb{R}^N$ are analogous to the membrane potentials and the firing rates of the $N$ neurons in the attractor network, respectively. They are related by a nonlinearity $\sigma(\cdot)$, which has three parameters: $a$, $b$ and $c$.
+\begin{equation}
+f = \sigma(u) = a\,\log(1 + c\,[u + b]_+)
+\end{equation}
+The matrix $S_{\text{\scriptsize{eff}}} \in \mathbb{R}^{N \times N}$ is the effective connection strength between units. Gaussian's white noises are added to the units and the weight with the rates $\rho_u$ and $\rho_S$, respectively. Time constant of the network is denoted by $\tau$.
+
+We assume that the network activity represents the attractor state while an external input can affect the state by altering the connection weight between units. The weight can be decomposed into the symmetric part and the anti-symmetric part. We assume that the symmetric part, $S$, is constant while the anti-symmetric part, $A$, linearly depends on the input velocity.
+\begin{equation}
+S_{\text{\scriptsize{eff}}} = S + \alpha v A
+\end{equation}
+where the factor $\alpha$ amplifies the magnitude of the input velocity.
+
+Since the attractor network function as a memory, it should have at least these three operations.
+\begin{enumerate}
+    \item Write to memory.
+    \item Holding store value over time.
+    \item Read from memory.
+\end{enumerate}
+Read from memory operation can be done by observing the value of $f$. Holding store value over time operation is achieved by the recurrent connection. However, the write operation is not included in equation (\ref{eq:attractor}). We hence modify the equation by replacing $f$ with $f_{\text{\scriptsize{eff}}}$ where
+\begin{equation}
+f_{\text{\scriptsize{eff}}} =
+	(1 - \beta)\sigma(u_t) + \beta f_{\text{\scriptsize{write}}}
+\end{equation}
+Here $\beta \in \{0, 1\}$ controls whether we would like to hold the current memorized location $x$ ($\beta = 0$), or write new $x$ into the network ($\beta = 1$).
+
+\section{Training}
+\label{sec:train}
+
+To implement the model as a recurrent neural network, first we discretize time and turn the model differential equation into the following difference equation.
+\begin{equation}
+u_{t+1} = u_{t} + \frac{1}{\tau} \left(
+    -u_{t} + (S_{\text{\scriptsize{eff}}} + \nu_S)
+    f_{\text{\scriptsize{eff}}} + \nu_u
+	\right)
+\end{equation}
+where $\nu_u = \int_{t}^{t+1} \rho_u dt$ and $\nu_S = \int_{t}^{t+1} \rho_S dt$.
+
+We are not trying to learn the optimal encoding-decoding mapping between the location $x \in \mathbb{R}$ and the network representation $f \in \mathbb{R}^N$, but we will compare the performance between ``place" representation and ``place-grid" representation. This mean the mapping $x \mapsto f \mapsto \hat{x}$ will be hand-designed. However, for each choice of the mapping, we need to train the network to find the optimal parameters $S$, $A$, $a$, $b$, $c$. The method used is back-propagation through time on the recurrent neural network described above.
+
+The procedure for training the network parameters can be describe as follows. Let the input location be $x$ and the input velocity be $v$, and suppose that we train the network over $T$ time steps. First we calculate $f_{\text{\scriptsize{init}}}$ which represents $x$ and $f_{\text{\scriptsize{final}}}$ which represents $x + vT/\tau$, both according to the choice of mapping we choose. Then we write $f_{\text{\scriptsize{init}}}$ to the network by setting $f_{\text{\scriptsize{write}}} = f_{\text{\scriptsize{init}}}$ and $\beta = 1$ for $T_{\text{\scriptsize{write}}}$ time steps. After that, we set $\beta = 0$ to let to network run itself without $f_{\text{\scriptsize{write}}}$ input, but with velocity input $v$ which affect the network through $S_{\text{\scriptsize{eff}}} = S + \alpha v A$. Suppose the network outputs $f_{\text{\scriptsize{out}}}$ after running for $T$ time steps, network parameters are optimized using gradient descent with mean square error cost function.
+\begin{equation}
+\label{eq:cost}
+E = \|f_{\text{\scriptsize{final}}} - f_{\text{\scriptsize{out}}}\|^2
+\end{equation}
+
+Each training epoch is broken into two sub-epochs. In the first sub-epoch, the network's parameters $S$, $a$, $b$, $c$ are trained with a cost function to hold the memorized location still. In the second sub-epoch, the network's parameter $A$ is trained with a cost function to move the memorized location according to the input velocity $v$. Both cost functions are define as square difference between the representation $f$, \textit{i.e.} $\|f_{\text{\scriptsize{final}}} - f_{\text{\scriptsize{out}}}\|^2$.
+
+\section{Grid Code as Analog Error-correcting Code}
+\label{sec:grid_code}
+Section \ref{sec:model} and \ref{sec:train} define an attractor network and describe how fixed points can be trained using the denoising autoencoder framework. Nevertheless, there is still an open question of what activity pattern should be used to represent a location. Place code is a very natural choice. In this coding scheme, we assign neurons with evenly-spaced discrete locations in the range $[0, 1]$. Then, an activity pattern to encode a location $x$ is a Gaussian blob centered at $x$ with some blob width $w$:
+\begin{align}
+\label{eq:place_code}
+f_i &= \exp\left[
+	-\frac{(x - \mu_i)^2}{2w^2}
+\right] \\
+\mu_i &= \frac{i}{N - 1}
+	\quad\text{for}\quad i \in \{0, 1, 2, \dots, N-1\}
+\end{align}
+where $f_i$ is the activity of neuron $i$\textsuperscript{th}; $\mu_i$ is the location assign to neuron $i$\textsuperscript{th}; $N$ is the total number of neurons.
+
+Reading out the location can be done by inferring the center of the a Gaussian blob from the network activity. Here, we use a very simple method: calculating the weighted average location:
+\begin{equation}
+x_{\text{\scriptsize{out}}} = \frac{\sum_i f_i \mu_i}{\sum_i f_i}
+\end{equation}
+Note that there are methods better than calculating the weighted average, but we use weighted average because of its simplicity, and it is sufficient for our purpose of comparing coding schemes, even though this method causes error at the edges (near 0 and near 1).
+
+We can train the attractor network with the place code location representation using the procedure described in section \ref{sec:train}. We find that the network performs quite well in retrieving the stored location, as well as doing path integration when we have a non-zero input velocity. Moreover, the error produced by the network is usually small, \textit{i.e.} the retrieved value usually does not deviate from the initially stored value much. In order to understand grid code, we start by thinking about how one can improve the network performance, or in other word reducing the error in the read out location value.
+
+Error correction or reduction in coding with noisy system can be achieve by having redundancy in the code. The simplest way to do error correction in digital code is replication code. Replication code is done by sending or storing multiple copy of the same code and use majority rule to do error correction. This is very inefficient especially in the regime where the probability of having an error (bit flip) is low. One of the commonly-used more efficient code is low-density parity-check code (LDPC). Basically, LDPC computes parities (sums modulo 2) of some subsets of bits in the code, and append them to the code. Decoding is done by trying to probabilistically infer the original code from the code that might be corrupted. The efficiency gain of LDPC compared to repetition code comes from the prior knowledge about statistics of the error. The error (bit flip) is assumed to happen independently for each bit and with low probability. Hence, it is very unlikely to have many errors occur at the same time. LDPC exploits this prior.
+
+The idea from digital coding can be applied to analog coding using place code. First let us consider the naive solution of using repetition code: if we have multiple copies of the place networks, we can average the readout values to reduce the error. However, this would be almost the same as increasing the number of neurons used in a single place network. Hence, it would not increase the network performance, given the constraint of using a fixed number of neurons.
+
+Recall that LDPC code's efficiency comes from exploiting the prior on the error. We know that the distribution of the read out location error is heavily distributed around zero, \textit{i.e.} the error is usually small, rather than uniformly distributed over all possible value. Hence, we should focus the redundancy of the representation around the stored value rather than all possible values as in the repetition code. For example, we can divide the total number of neurons we have $N$ into 2 sets of the same size. The first set of neurons can use place cell code to encode location as in equation (\ref{eq:place_code}) above but with $N/2$ neurons. The second set can play role in error correction by using the similar place code but with smaller range. Suppose the stored location is $x=0.1$; we can assign the second set of neurons with the following location:
+\begin{equation}
+\mu_i = 0.05 + 0.1\left(\frac{2i}{N - 1}\right)
+	\quad\text{for}\quad i \in \{0, 1, 2, \dots, (N-1)/2\}
+\end{equation}
+This coding scheme will greatly reduce the error of the read out code when $x$ is near $0.1$. The first reason for reducing the error is redundancy. Another reason comes from squeezing the coding range. Since this range is the only length scale of the network, the error scale (\textit{e.g.} the standard deviation of the error) must be proportional to this range.
+
+The obvious problem with this scheme is that the location we would like to store uniformly distributes in the range $[0, 1]$ and is not always $0.1$. In fact, this scheme is very wasteful since the neurons in the error correcting network are not active most of the time. The solution to this problem is, not surprisingly, using grid code. Grid code is similar to the error correcting scheme above in the sense that squeezing the coding range increases the network performance. However, we need each neuron to fire at more than a single location in order to not being wasteful and cover all possible locations with in the range $[0, 1]$.
+
+\section{Comparison Between Place-Only and Place-Grid Representations}
+\label{sec:grid}
+
+In this study, we compare two 1D location representation schemes for an attractor network trained with the denoising autoencoder framework, given a fixed number of neurons. We called the first scheme place-only representation: each neuron in the attractor network are assigned to a single location in the 1D space within the range [0, 1] uniformly, and behaves like a place cell. The second scheme is called place-grid representation: some of neurons are place cells like in the place-only representation, while the other neurons behave like grid cells, i.e. they response to multiple location in space. This section describe the two representation schemes in details. In each scheme, we will define a mapping $x \mapsto f$, where $x \in [0, 1]$ is a location, $f \in \mathbb{R}^N$ is an activity pattern we would like the attractor network to memorize and $N$ is the number of neurons.
+
+First we define a place coding $P^{(L)}_N[x]$ with line topology using $N$ neurons :
+\begin{align}
+\left( P^{(L)}_N[x] \right)_i &= \exp\left[
+	-\frac{(x - \mu_i)^2}{2w^2}
+\right] \\
+\mu_i &= \frac{i}{N - 1}
+	\quad\text{for}\quad i \in \{0, 1, 2, \dots, N-1\}
+\end{align}
+where $i$ is an index over the neurons, $\mu_i$ is the location assign to neuron $i$, and $w$ is the Gaussian blob width. A similar coding over ring topology $P^{(R)}_N[x]$ can be define as:
+\begin{align}
+\left( P^{(R)}_N[x] \right)_i &= \exp\left[
+	-\frac{d_i^2}{2w^2}
+\right] \\
+d_i &= \min \left( |x - \mu_i|, 1 - |x - \mu_i| \right) \\
+\mu_i &= \frac{i}{N}
+	\quad\text{for}\quad i \in \{0, 1, 2, \dots, N-1\}
+\end{align}
+The place-only representation mapping is then just
+\begin{equation}
+f_{\text{\scriptsize{place-only}}} = P^{(L)}_N[x]
+\end{equation}
+In comparison, the place-grid representation mapping is
+\begin{align}
+x^{(0)} &= x \\
+x^{(1)} &= kx \;\text{mod}\; 1.0 \\
+N &= N_0 + N_1 \\
+f^{(0)} &= P^{(L)}_{N_0}[x^{(0)}] \in \mathbb{R}^{N_0} \\
+f^{(1)} &= P^{(R)}_{N_1}[x^{(1)}] \in \mathbb{R}^{N_1} \\
+f_{\text{\scriptsize{place-grid}}} &= [f^{(0)}; f^{(1)}] \in \mathbb{R}^{N}
+\end{align}
+Here the subnetwork $0$ is the place network while the subnetwork $1$ is the grid network. $N_0$ and $N_1$ are the number of neurons in the subnetworks, and $k$ is the grid frequency. Notice that grid coding is just a place coding with ring topology in a modulo space. The grid frequency $k$ squeeze the space to be smaller (increase accuracy), while using the modulo space makes each grid neuron active in multiple location as we wanted.
+
+\section{Results}
+\label{sec:results}
+
+We learn the connection weights for place cell and grid cell network with the method described in section \ref{sec:train}. We verify that the network can hold a location written to it, and change the location it holds according the velocity provided by running the network. Then, we compare the robustness of the network's memory against noise between the two representation scheme: a place-only network, and a place-grid network. Finally, we try to understand the attractor energy landscape by letting the network runs with no noise.
+
+\subsection{Training Attractor Networks with Denoising Autoencoder Framework}
+\label{sec:result_training}
+
+Figure \ref{fig:kz/weights} shows an example of the connection weights between units in the network that we learn. Figure (a) and (c) shows the symmetric and anti-symmetric weights of the place-only network. These are very similar to the weights calculated analytically \cite{zk96}. The symmetric weights (a) are responsible for holding the memory against noise. If we plot the incoming connection of one cell against the location represented by the other cells, it looks like a sinc function with a peak at itself plus an overall uniform negative weights. Each cell tries to pull the activities of the neighbors since they represent closed by locations, while suppression any other locations since one location can be hold at a time.
+
+The anti-symmetric weights (c) are responsible for moving the stored location according to the input velocity signal. If we look at the outgoing connection from one cell, it has a positive connection with the neighbor cell in the ``+x" direction, and a negative connection with the neighbor cell in the ``-x" direction. Let's recall that the effective connection matrix is $S_{\text{\scriptsize{eff}}} = S + \alpha v A$. When $v=0$ the connection has no anti-symmetric component, so the network only hold the memory. When $v>0$ the outgoing connection from an active cell will encourage the activity of its neighbor in the ``+x" direction and suppress the activity of its neighbor in the ``-x" direction. Hence, the activity blob will moves in the ``+x" direction when the input velocity signal is positive. The opposite happens when the velocity is negative.
+
+Now let's focus on figure \ref{fig:kz/weights} (b) and (d) which show the symmetric and anti-symmetric weights, respectively, in the network with both place cells and grid cells. In this particular example, the proportion is splitted half and half, where cell 0-31 are place cells and cell 32-63 are grid cells with grid frequency of 7. In the symmetric weights (b), if we can see that the connections among the grid cells are very similar to the connection between place cells in the place-only network. The explanation for this weight pattern is the same. One minor difference is at the edge of the network since the place cell only network has line topology while the grid cell subnetwork has ring topology. Next, let's examine the connection between place cells and grid cells in the network. We can see the multiple stripe pattern indicating that each grid cell has connections which encourage activity of place cells in multiple locations (7 stripes and 7 locations to be precise for this example, because the grid frequency is 7). The converse is also true: each grid cell receives positive connection from place cells from multiple locations (however, note that in usual situation place cells near only one location are active at a time). Finally, if we look at the connection among place cells in the place-grid network, the connections near the diagonal are similar, again, to ones we have in the place-only network. The main difference is in the place-grid network, we have a periodical suppression shown as a dark blue stripe in the figure. This is to suppress the activity of place cells in other locations supported by the same grid cell.
+
+The anti-symmetric weight matrix in place-grid network (d) is similar to one in the place-only network. The main difference is that the weights among the grid cells are much stronger than the weights among the place cells. This is because the activity blob in the grid subnetwork has to move $k$ times faster than the blob in the place subnetwork where $k$ is the grid frequency. This implies that noise has to be stronger in order to drift the stored location in the place-grid network compared to the place-only network.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.95]{kz/weights.pdf}
+\end{center}
+\caption{Example of the learned connection weights. The symmetric part and the anti-symmetric part of the place cell only network are shown in (a) and (c), respectively. Similarly, the symmetric part and the anti-symmetric part of the place-grid cell network are show in (b) and (d), respectively. Here the network has the same number of place and grid cells, and the grid frequency is 7.}
+\label{fig:kz/weights}
+\end{figure}
+
+Figure \ref{fig:kz/write_eg} (a) and (b) demonstrates network activity under the ``write" operation at $x=0.25$ for the place-only network and the place-grid network, respectively. The x-axis represents the cell number while the y-axis represents each cell activity. Each line in the plot representing activity at each time step. Note that although the number of cells in the network is discrete (64 cells), we show a line plot instead of a bar plot for better visualization of activity change over time. We can see that both network activities start off randomly ($t=1$), and then converge into blobs ($t=15$) representing the location written to the network. Note that there are two blobs in the place-grid network: one in the place subnetwork and another in the grid subnetwork. Figure \ref{fig:kz/hold_eg} (a) and (b) demonstrates network activity under the ``hold" operation for the place-only network and the place-grid network, respectively. During this operation, no location information is given to the network, so it has to hold the location it has memorized. We can see that the network activity is quite stable. Figure \ref{fig:kz/move_eg} (a) and (b) demonstrates network activity under the ``move" operation for the place-only network and the place-grid network, respectively. These figures demonstrate the network at running time and verify that it works as we expect.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.9]{kz/write_example.pdf}
+\end{center}
+\caption{Example unit firing rate under write operation for (a) place cell network and (b) place-grid cell network with grid frequency of 7. Note that number of units are discrete but we show it as line graph, because it is easier to view the temporal development this way. Both network receive write command at $x = 0.25$ for 15 time steps ($\tau = 5$ time steps for both network), started from randomized state. Time steps are color coded from violet ($t = 1$) to red ($t = 15$).}
+\label{fig:kz/write_eg}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.9]{kz/hold_example.pdf}
+\end{center}
+\caption{Example unit firing rate under hold operation for (a) place cell network and (b) place-grid cell network with grid frequency of 7. Note that number of units are discrete but we show it as line graph, because it is easier to view the temporal development this way. Both network receive hold command for 15 time steps ($\tau = 5$ time steps for both network). Time steps are color coded from violet ($t = 1$) to red ($t = 15$).}
+\label{fig:kz/hold_eg}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.9]{kz/move_example.pdf}
+\end{center}
+\caption{Example unit firing rate under move operation for (a) place cell network and (b) place-grid cell network with grid frequency of 7. Note that number of units are discrete but we show it as line graph, because it is easier to view the temporal development this way. Both network receive move command for 75 time steps ($\tau = 5$ time steps for both network) with input speed = 0.005. Time steps are color coded from violet ($t = 5$) to red ($t = 75$).}
+\label{fig:kz/move_eg}
+\end{figure}
+
+\subsection{Robustness Against Random Unit and Weight Noise}
+\label{sec:result_robust_random}
+
+To compare the robustness against unit noise and weight noise between the place-grid network and the place-only network , we run both networks with the ``hold" operation for many time steps and compare the average squared error of the stored location. We also compare the performance of the place-grid network with different ratio between number of place cells and grid cells, and with different grid frequency. Figure \ref{fig:kz/x2err_vs_nsteps} (a) shows a plot between location squared error versus number of time steps for the place-only network and the place-grid network with various ratio between place cells and grid cells and grid frequency of 7. Figure \ref{fig:kz/x2err_vs_nsteps} (b) shows a similar plot but with the ratio between place cells and grid cells fixed to 32:32 and the grid frequency varying from 1 to 8. We find that if the place-grid network has the appropriate ratio between place and grid cells, and has appropriate grid frequency, it performs better than the place-only network. In fact, for the network with 64 total cells, $\nu_s=0.1$ and $\nu_u=0.1$, the place-grid network with the ratio 32:32 and grid frequency 7 perform the best.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.8]{kz/x2err_vs_nsteps.pdf}
+\end{center}
+\caption{Figure showing squared error of read out location versus number of time steps the network has been run. Plot (a) compare network with different ratio between place cells and grid cells. All networks with grid cells shown here has grid frequency of 7. They perform better than the network with no grid cell. Plot (b) compare network with different grid frequencies. All place-grid network shown has 32 place cells and 32 grid cells. The optimal grid frequency in the set up is approximately 7.}
+\label{fig:kz/x2err_vs_nsteps}
+\end{figure}
+
+\subsection{Robustness Against Constant Perturbation}
+\label{sec:result_robust_const}
+
+We also test the network performance in the present of constant perturbation. In this test, we still train the network with $\nu_s=0.1$ and $\nu_u=0.1$, but we set them to 0 at test time. However, a constant perturbation matrix generated from a uniform distribution with the range $(-\sigma, \sigma)$ is added to the symmetric weight matrix, where $\sigma$ controls the perturbation level. Figure \ref{fig:kz/x2err_vs_sigma} shows the plot between absolute error in the readout location $|x - x_{\scriptsize{\text{out}}}|$ and the perturbation level $\sigma$. The reason we use absolute difference the measure error in this case rather than using squared error is because the nature of the error is drifting due to the anti-symmetric component in the perturbation matrix. We see from the plot that the place-grid network with the best parameters (ratio 32:32 and grid frequency 7) performs better than the place-only network when the perturbation is small enough (in this case when $\sigma$ less than about 0.1). We argue that when the perturbation is big, the network should re-adapt its connection matrix instead of trying to be robust against the perturbation.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.8]{kz/x2err_vs_sigma.pdf}
+\end{center}
+\caption{Figure showing absolute error of read out location versus level of constant perturbation added to the symmetric weight matrix. Plot (a) compare network with different ratio between place cells and grid cells. All networks with grid cells shown here has grid frequency of 7. They perform better than network with only place cell in small perturbation regime. Plot (b) compare network with different grid frequencies. All place-grid network shown has 32 place cells and 32 grid cells. Again, the plot shows that network with grid cells perform better than network with place cells alone in small perturbation regime.}
+\label{fig:kz/x2err_vs_sigma}
+\end{figure}
+
+\subsection{Energy Landscape}
+\label{sec:result_landscape}
+
+To understand why the place-grid network performs better than the place-only network, we try to understand the energy landscape of the network. If we want the network to be able to represent every value on the real number line between 0 and 1 precisely, we need the network to be a line attractor. However, an ideal line attractor is not robust against noise, since there is no energy boundary to move from a state corresponding to one location to another. To examine the energy landscape of the network, we start off the network in a state where it represent some location $x$. Then, we set both the unit noise $\nu_u$ and the weight noise $\nu_S$ of the network to 0. After that, we run the network with ``hold" operation for 1000 time steps, and read out the location stored by the network $x_{\scriptsize{\text{out}}}$. Finally we plot $x_{\scriptsize{\text{out}}}$ versus $x$. Figure \ref{fig:kz/x2err_vs_sigma} (a) and (b) show the plots for the place-only and place-grid network, respectively. Both plots turn out to have staircase shapes instead of straight lines. This indicates that the energy landscape is not one of a line attractor, but of a point attractor, where the fixed points line up to represent values on a real number line. This structure has energy boundaries between states representing neighboring locations, making the network robust to noise. Comparing between the plot of the place-only network (a) and the plot of the place-grid network (b), we can see the staircase step in the place-grid network is smaller and more frequent. This indicates that the place-grid network has more number of fixed points representing the real number line, making the representation more precise. Moreover, comparing between figure \ref{fig:kz/weights} (c) and (d) which are the anti-symmetric weight matrix of the place-only network and the place-grid network, we can see that the weight matrix of the place-grid network has bigger magnitude (bigger max absolute value). Recalling that the anti-symmetric weight is responsible for the ``move" operation, this indicates that moving from one state to a neighboring state in the place-grid network is more difficult than in the place-only network. This means the energy well of fixed point in the place-grid network is deeper than in the place-only network. To summarize, the place-grid network performs better at holding a stored location than the place-only network for two reasons. First, it has more fixed points making it more precise at representing a real value with a discrete number of states. Second, it requires more activity or more noise power to move from one state to another.
+
+\begin{figure}[ht]
+\begin{center}
+\includegraphics[scale=0.85]{kz/step_example.pdf}
+\end{center}
+\caption{Graph between $x_{\text{\scriptsize{in}}}$ vs. $x_{\text{\scriptsize{out}}}$ after we run the network for 1000 time steps. The units and weights are set to be noiseless at test time. Figure (a) shows a plot for the place cell network and figure (b) shows a plot for the place-grid cell network with grid frequency of 7. The step shape of the curve indicates that the attractor fixed points are discrete, with finer interval between fixed points in the place-grid network than in the place-only network.}   
+\label{fig:kz/step_eg}
+\end{figure}
+
+\section{Discussions}
+\label{sec:discuss}
+
+The results (section \ref{sec:results}) show that an attractor network can be trained to memorize the desired activity pattern using back-propagation through time. The training would not be possible without noise added to the system. Noise push the network activity away from the desired patterns, so the network learns a recurrent connection which makes each of the desired patterns an attractor point. Specifically in our case, the attractor points line up as a 1D manifold in a high dimensional space representing a location in the range [0, 1].
+
+In this work we do not learn the optimal activity pattern for representing a location in 1D space, but we compare two coding scheme: place-only code and place-grid code. The results show that place-grid code outperform the place-only code in accuracy of the memorized location when both network have the same number of neurons and amount of noise in their units and weights. Furthermore, we compare performance of the two networks when there is a constant perturbation added to their weights. The grid-place network outperform the place-only network when the perturbation magnitude is below 10\%. The regime with bigger perturbation is of less concern, because we suppose that the neural network will eventually adapt its weights to counter the constant perturbation.
+
+The grid-place network performs better than place-only network, because the grid code creates higher ``traction" to move from one location state to another, so it is harder for the location stored to ``drift". Also, there are more attractor states along the 1D manifold in the grid-place network than the place-only network so it can represent a location more accurately.
+
+We mention in the introduction about generalization from 1D space to 2D space. The first change needed is that the velocity in 2D will have 2 components so we will need 2 asymmetric matrices for moving the stored location. Hence, the effective connection matrix will be
+\begin{equation}
+S_{\text{\scriptsize{eff}}} = S + \alpha (v_x A_x + v_y A_y)
+\end{equation}
+The training of an attractor network is independent of the representation scheme, so it would be the same.
+
+The more complicated matter is the generalization of the location representation scheme. Let us assume that the location range we would like to code in 2D is $x \in [0, 1]$ and $y \in [0, 1]$. A naive generalization of the place code from 1D to 2D can be done by modifying the place coding to
+\begin{equation}
+\left( P^{(L)}_N[x, y] \right)_i = \exp\left[
+	-\frac{(x - \mu^x_i)^2 + (y - \mu^y_i)^2}{2w_x^2}
+\right]
+\end{equation}
+where the locations assigned to the neurons $(\mu^x_i, \mu^y_i)$ are on a square grid cover the coding range. However, this would be suboptimal, since we would like to evenly pack the neuron receptive fields over the range. Sphere packing in 2D is optimal with a triangular grid, so $(\mu^x_i, \mu^y_i)$ should be on a triangular grid instead.
+
+For the grid code, we need modifications in both the locations assigned to the neurons (in modulo space), and the grid structure. The grid structure we describe before for 1D space is a grid structure along a line achieved by transforming $x$ to a modulo space
+\begin{equation}
+x^{(1)} = kx \;\text{mod}\; 1.0
+\end{equation}
+We can do the same thing in the $y$ direction.
+\begin{equation}
+y^{(1)} = ky \;\text{mod}\; 1.0
+\end{equation}
+With this, we will have a square grid. Recall that the reason for having the grid code is that we would like to have redundancy with squeezed coding range in order to do error correction. The inefficiency of having most of the neurons inactive most of the time make it desirable for each neuron to have multiple firing locations. We would like to pack as many location where a neuron fires as possible, and that can be achieved by making the grid structure triangular. It can be done by transforming the coordinate from $y\mapsto y'$, and do the modulo space mapping in the transformed coordinate.
+\begin{align}
+&y' = y\cos( 30^{\circ} ) + x\sin( 30^{\circ} ) \\
+&y'^{(1)} = ky' \;\text{mod}\; 1.0
+\end{align}
+The grid code is then
+\begin{equation}
+f^{(1)} = P^{(R)}_{N_1}[x^{(1)}, y'^{(1)}] \in \mathbb{R}^{N_1}
+\end{equation}
+The distribution of the assigned locations, \textit{i.e.} $\mu^{(x,y)}_i$ for the grid neurons must be on a triangular grid as described above for the place neurons in order for the coding the be optimal.
+
+Future directions of this work are the following. First, the comparison between different coding scheme in this study is very limited, \textit{i.e.} we only compare place-only networks to place-grid networks with only 1 grid layer. Future works should explore a scheme with multiple grid layers, with various ratio between grid scales. Also, this study works only on a network with 64 neurons, and uses Gaussian's white noise of variance 0.01 for both the unit noise and weight noise. More exploration should be done over these parameters as well. Secondly, we have outlined the generalization of place-grid coding in 2D but it has not been implemented and verified yet, so implementation of 2D place-grid coding scheme on an attractor network is the second direction. Finally, it would be ideal to have the optimal representation learned, \textit{i.e.} optimized for some objective function, instead of being designed base on observations in neuroscience experiments.
+
+
+
