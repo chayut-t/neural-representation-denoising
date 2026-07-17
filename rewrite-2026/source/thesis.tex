@@ -1,0 +1,147 @@
+\documentclass[11pt,oneside,openany]{book}
+
+\usepackage[letterpaper,inner=1.15in,outer=1.0in,top=1.0in,bottom=1.0in,headheight=15pt]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\usepackage{microtype}
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,multirow,array,tabularx,longtable}
+\usepackage{caption,subcaption}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[round,authoryear]{natbib}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+
+\definecolor{LinkBlue}{HTML}{174A7E}
+\definecolor{LimitGray}{HTML}{F2F2F2}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=LinkBlue,
+  citecolor=LinkBlue,
+  urlcolor=LinkBlue,
+  pdftitle={Denoising Objectives for Learning and Stabilizing Neural Representations},
+  pdfauthor={Chayut Thanapirom}
+}
+
+\setstretch{1.08}
+\setlength{\parindent}{1.35em}
+\setlength{\parskip}{0.15em}
+\setlength{\emergencystretch}{2em}
+\setlist{nosep,leftmargin=*}
+\captionsetup{font=small,labelfont=bf}
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\bfseries\huge}
+  {\filleft\Large\chaptertitlename\ \thechapter}
+  {0.5ex}
+  {\titlerule\vspace{1.2ex}\filright}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\nouppercase{\leftmark}}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\mat}[1]{\bm{#1}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1\right\rvert}
+\newcommand{\given}{\,\middle|\,}
+\newenvironment{evidencenote}
+  {\begin{quote}\small\noindent\color{LinkBlue}\textbf{Evidence scope.}\color{black}~}
+  {\end{quote}}
+\newenvironment{limitationnote}
+  {\begin{quote}\small\noindent\textbf{Interpretive limit.}~}
+  {\end{quote}}
+
+\begin{document}
+
+\hypersetup{pageanchor=false}
+
+\begin{titlepage}
+\centering
+\vspace*{0.9in}
+{\sffamily\bfseries\LARGE Denoising Objectives for Learning and Stabilizing Neural Representations\par}
+\vspace{0.35in}
+{\Large Group Structure in Sparse Codes and Noise-Robust Spatial Attractors\par}
+\vspace{0.8in}
+{\large by\par}
+\vspace{0.12in}
+{\Large Chayut Thanapirom\par}
+\vfill
+{\large A dissertation in Physics\par}
+\vspace{0.35in}
+{\large July 2026\par}
+\vspace{0.5in}
+{\small Dissertation committee: Michael R. DeWeese (Chair), Bruno A. Olshausen, and Hernan G. Garcia\par}
+\end{titlepage}
+
+\frontmatter
+\hypersetup{pageanchor=true}
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+Copyright \textcopyright\ 2026 Chayut Thanapirom
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\input{abstract}
+\clearpage
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+In memory of my mother and my grandfather.
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\chapter*{Acknowledgments}
+\addcontentsline{toc}{chapter}{Acknowledgments}
+I am deeply grateful to my advisor, Mike DeWeese, for his support, encouragement, and confidence in me, especially when my own confidence was uncertain. I also thank my co-advisor, Bruno Olshausen, for the many hours he spent developing ideas with me, helping me through difficult problems, and serving as an academic role model.
+
+I thank Hernan Garcia for serving on my dissertation committee and for generously giving his time. I am grateful to everyone at the Redwood Center for listening to presentations, offering constructive criticism, helping me prepare for my qualifying examination, and making the Center such a stimulating and supportive place to work in theoretical neuroscience. I also thank Chanoknan Vorasucha for helping to write portions of the experimental code.
+
+My family and friends sustained me through the most difficult parts of graduate school. Finally, I gratefully acknowledge NVIDIA Corporation for the donation of the Tesla K40 GPU used in the experiments.
+
+\chapter*{Scope and reproducibility}
+\addcontentsline{toc}{chapter}{Scope and reproducibility}
+This dissertation develops two computational studies and a common interpretation based on corruption and restoration. The mathematical claims are derived in the text, and the empirical claims are limited to the figures, tables, and experimental procedures presented in the relevant chapters.
+
+The training code, model checkpoints, raw per-trial outputs, and random seeds are unavailable. Numerical comparisons are therefore reported as descriptive results rather than independent replications or claims of statistical significance. Missing implementation details and the experiments needed to resolve them are stated explicitly in \cref{sec:intro-scope,sec:synthesis-limitations}.
+
+\mainmatter
+\input{chap1}
+\input{chap2}
+\input{chap3}
+\input{chap4}
+\input{chap5}
+
+\appendix
+\input{appendix}
+
+\backmatter
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

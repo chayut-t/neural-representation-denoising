@@ -1,0 +1,287 @@
+\chapter{Noise-Robust Location Codes in Recurrent Networks}
+\label{chap:attractor}
+
+\section{Question and evidence status}
+\label{sec:attractor-question}
+
+Spatially tuned neurons motivate two related but distinct questions. How can a recurrent network hold and update a location-dependent activity pattern? And when does a periodic component make that representation more robust than a localized place code? This chapter presents a one-dimensional computational example designed to separate those questions.
+
+The model does not learn place or grid receptive fields from biological data. It prescribes two code families, trains recurrent parameters to restore and transport them, and compares simulation outputs under selected perturbations. The strongest warranted conclusion is conditional: a mixed localized--periodic code can outperform a place-only code in parts of this model's tested regime.
+
+\begin{evidencenote}
+The figures summarize the simulations reported in this chapter. The training code, checkpoints, per-trial results, and random seeds are unavailable. Total neuron count and stated noise amplitudes are known, but the exact decoder implementation, randomization protocol, hyperparameter-selection split, and several noise-scaling conventions cannot be verified.
+\end{evidencenote}
+
+\section{Biological observations and computational hypotheses}
+\label{sec:attractor-background}
+
+Place cells in the hippocampal formation fire selectively in particular spatial regions \citep{oj71}. Grid cells in medial entorhinal cortex have multiple firing fields arranged approximately on a triangular lattice \citep{ht05}. Grid cells are organized into modules: cells within a module share scale and orientation, and modules span distinct scales \citep{sh12,me14}. These are empirical observations about neural responses.
+
+Several computational hypotheses address those observations. Continuous-attractor networks can stabilize a low-dimensional population state and translate it using velocity input \citep{ss02,by09}. Coding analyses show that periodic responses can support high precision because phase changes rapidly relative to physical position, while combinations of scales can resolve periodic ambiguity \citep{ss11,wei15,stemmler15}. These theories explain possible functions of grid-like codes; they do not by themselves specify the biological learning rule or circuit.
+
+Experimental evidence is consistent with attractor structure at the population level. Simultaneous grid-cell recordings show low-dimensional relationships predicted by continuous-attractor models \citep{yoon13}. Larger recordings reveal toroidal population topology within individual grid modules, stable across environments and behavioral states \citep{gardner22}. This evidence strengthens the relevance of low-dimensional manifold models. It does not validate the particular one-dimensional architecture trained here.
+
+Training studies provide another comparison. Recurrent networks optimized for spatial localization can develop grid-like response patterns \citep{cueva18}, and artificial navigation agents can learn grid-like internal units that support vector navigation \citep{banino18}. The model here takes the complementary route: it fixes the code and learns dynamics that preserve it.
+
+\section{The coding tradeoff: precision and ambiguity}
+\label{sec:attractor-coding-tradeoff}
+
+Suppose a population uses a smooth activity bump to encode $x\in[0,1]$. A localized place code maps each location to one activity pattern. With a fixed number of tuning curves, narrower fields can improve local precision but leave gaps or reduce noise tolerance.
+
+A periodic code reuses the same tuning curves at multiple locations. If its phase is
+\begin{equation}
+\varphi(x)=kx\bmod 1,
+\end{equation}
+then a small displacement in $x$ produces a $k$-times larger phase displacement before wrapping. This can improve local resolution. The cost is aliasing: locations separated by $1/k$ have the same periodic phase. A localized component or additional incommensurate modules are needed to determine the global location.
+
+The place--periodic code combines one localized block with one periodic block. The localized block supplies global disambiguation; the periodic block supplies a finer local coordinate. Calling this ``error correction'' is appropriate only after specifying the corruption model, decoder, and resource budget. Periodicity alone is not redundant evidence of a unique position.
+
+\section{Recurrent model}
+\label{sec:attractor-model}
+
+The implementation is most clearly described as a discrete recurrence. Let $\vect{u}_t\in\R^N$ be internal state and $\vect{f}_t=\phi(\vect{u}_t)$ be activity. A model step is
+\begin{equation}
+\label{eq:attractor-discrete}
+\vect{u}_{t+1}
+=\vect{u}_t+\frac{\Delta t}{\tau}
+\left[
+-\vect{u}_t
++\left(\mat{S}+\alpha v_t\mat{A}+\mat{\Xi}_t\right)
+\vect{f}^{\mathrm{eff}}_t
++\vect{\xi}_t
+\right].
+\end{equation}
+Here $\tau$ is a time constant, $v_t$ is a signed velocity control, $\mat{\Xi}_t$ is a weight perturbation, and $\vect{\xi}_t$ is a state perturbation. The available specification moves between continuous-time noise ``rates'' and discrete noise samples, so the exact scaling with $\Delta t$ and $\tau$ remains unresolved.
+
+The activity nonlinearity was parameterized as
+\begin{equation}
+\label{eq:attractor-nonlinearity}
+\phi(u)=a\log\left(1+c[u+b]_+\right),
+\qquad [q]_+=\max(q,0),
+\end{equation}
+with trainable scalar parameters $a$, $b$, and $c$.
+
+The recurrent matrix is decomposed as
+\begin{equation}
+\label{eq:attractor-effective-weight}
+\mat{W}_{\mathrm{eff}}(v)
+=\mat{S}+\alpha v\mat{A},
+\qquad
+\mat{S}^{\mathsf{T}}=\mat{S},
+\quad
+\mat{A}^{\mathsf{T}}=-\mat{A}.
+\end{equation}
+When $v=0$, only the symmetric component contributes. It is trained to restore desired states after perturbation. When $v\neq0$, the antisymmetric component biases motion of the activity pattern. This assignment is operational: it is assessed by hold and move behavior. It should not be read as a proof that $\mat{S}$ defines a global energy or that $\mat{A}$ is the unique transport generator.
+
+\subsection{Write, hold, read, and move}
+\label{sec:attractor-operations}
+
+The network needs four operations.
+
+\begin{description}[style=nextline]
+  \item[Write] Drive the network toward the codeword $\vect{c}(x)$ for a supplied location.
+  \item[Hold] Set velocity to zero and maintain the state without continued location input.
+  \item[Read] Decode an estimated location $\hat{x}$ from the activity.
+  \item[Move] Apply velocity input so the represented location changes consistently over time.
+\end{description}
+
+Writing is implemented by mixing recurrent activity with an externally supplied codeword:
+\begin{equation}
+\label{eq:attractor-write}
+\vect{f}^{\mathrm{eff}}_t
+=(1-\beta_t)\phi(\vect{u}_t)
++\beta_t\vect{c}(x_{\mathrm{write}}),
+\qquad \beta_t\in\{0,1\}.
+\end{equation}
+Setting $\beta_t=1$ writes; setting $\beta_t=0$ allows autonomous recurrent evolution.
+
+\section{Training by restoration through time}
+\label{sec:attractor-training}
+
+The code $\vect{c}(x)$ is prescribed. Training adjusts $\mat{S}$, $\mat{A}$, and the nonlinearity so that the recurrent output approaches the desired final code after an unrolled sequence. For a start location $x$, velocity $v$, and horizon $T$, the target is the code at the transported location. Abstractly,
+\begin{equation}
+\label{eq:attractor-loss}
+\mathcal{L}_{\mathrm{RNN}}
+=\norm{\vect{c}(x_{\mathrm{target}})-\vect{f}_T}_2^2.
+\end{equation}
+Gradients are propagated through all time steps.
+
+Training alternated two subproblems. Hold training used $v=0$ and updated $\mat{S}$ and the nonlinearity. Move training used nonzero $v$ and updated $\mat{A}$. State and weight noise perturb the trajectory away from a target pattern; minimizing \cref{eq:attractor-loss} then teaches the recurrence to reduce the resulting error. This is the recurrent analogue of a denoising objective.
+
+The reported setup uses networks with 64 units, unrolled for 50 training steps and trained for 40,000 iterations with mini-batches of 256. Both state and weight noise have reported standard deviation 0.1, with $\tau=5$ and velocity gain $\alpha=100$. These values describe the experiment; they are not recommended defaults, and their exact scaling is not fully specified.
+
+\section{Prescribed location codes}
+\label{sec:attractor-codes}
+
+\subsection{Localized place code}
+
+For $N$ units with centers $\mu_i=i/(N-1)$, the line code is
+\begin{equation}
+\label{eq:place-line-code}
+\left(P_N^{\mathrm{line}}[x]\right)_i
+=\exp\left[-\frac{(x-\mu_i)^2}{2w^2}\right],
+\qquad i=0,\ldots,N-1.
+\end{equation}
+A simple population-vector readout is
+\begin{equation}
+\label{eq:place-readout}
+\hat{x}
+=\frac{\sum_i f_i\mu_i}{\sum_i f_i}.
+\end{equation}
+This decoder is biased near the boundaries because the Gaussian bump is truncated. A fair comparison should either correct that bias or apply an equivalently optimized decoder to both codes.
+
+\subsection{Ring code and mixed place--periodic code}
+
+For phase $q\in[0,1)$ and ring centers $\mu_i=i/N$, define circular distance
+\begin{equation}
+d_i(q)=\min\left(\abs{q-\mu_i},1-\abs{q-\mu_i}\right)
+\end{equation}
+and
+\begin{equation}
+\label{eq:ring-code}
+\left(P_N^{\mathrm{ring}}[q]\right)_i
+=\exp\left[-\frac{d_i(q)^2}{2w^2}\right].
+\end{equation}
+The place-only code is
+\begin{equation}
+\vect{c}_{\mathrm{place}}(x)=P_N^{\mathrm{line}}[x].
+\end{equation}
+The mixed code divides the units into $N_0$ localized and $N_1$ periodic units:
+\begin{equation}
+\label{eq:place-grid-code}
+\vect{c}_{\mathrm{mixed}}(x)
+=
+\begin{bmatrix}
+P_{N_0}^{\mathrm{line}}[x]\\
+P_{N_1}^{\mathrm{ring}}[kx\bmod 1]
+\end{bmatrix},
+\qquad N=N_0+N_1.
+\end{equation}
+The weighted-average decoder is fully specified for a place bump, but the description does not unambiguously specify how periodic activity enters the mixed-code readout. The likely role of the place block is to resolve phase ambiguity, but this decoder detail must be defined before a strict reimplementation.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.37\textwidth]{kz/example_grid.png}
+\caption[Grid-cell firing-field schematic]{Schematic of repeated firing fields on a triangular lattice. It illustrates the biological term ``grid cell''; the simulated code in \cref{eq:place-grid-code} is one-dimensional and periodic rather than a two-dimensional triangular grid.}
+\label{fig:grid-schematic}
+\end{figure}
+
+\section{Results}
+\label{sec:attractor-results}
+
+\subsection{Learned connection structure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{kz/weights.pdf}
+\caption[Learned recurrent weights]{Learned recurrent weights. (a,c) Symmetric and antisymmetric components for the place-only network. (b,d) Corresponding components for a 32-place/32-periodic network with frequency 7.}
+\label{fig:attractor-weights}
+\end{figure}
+
+The place-only symmetric matrix has strong near-diagonal structure: nearby tuning curves support one another, while broader inhibition suppresses distant bumps. The antisymmetric matrix has opposite signs on opposite sides of the diagonal, consistent with translating a bump in one direction for positive velocity and the other direction for negative velocity.
+
+The mixed-code matrices contain blocks for place--place, place--periodic, periodic--place, and periodic--periodic interactions. Repeated stripes in cross-block weights match the many-to-one relationship between physical location and periodic phase. The periodic antisymmetric block has larger displayed magnitude, consistent with the fact that phase advances $k$ times faster than physical position.
+
+That larger magnitude does not imply a deeper attractor basin. Antisymmetric weights generate transport and do not generally define a scalar energy. Robustness must be measured from recovery trajectories or basin geometry, not inferred from the color scale of $\mat{A}$.
+
+\subsection{Write, hold, and move examples}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{kz/write_example.pdf}
+\caption[Write operation]{Write trajectories for (a) a place-only network and (b) a mixed place--periodic network. Both start from random activity and are driven toward the code for the supplied location.}
+\label{fig:attractor-write}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{kz/hold_example.pdf}
+\caption[Hold operation]{Autonomous hold trajectories after writing for the same two code families. The displayed activity remains near a localized bump in each subpopulation over the shown interval.}
+\label{fig:attractor-hold}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{kz/move_example.pdf}
+\caption[Move operation]{Activity under constant velocity input. The place bump translates along the line code; periodic activity advances on its ring phase.}
+\label{fig:attractor-move}
+\end{figure}
+
+Together, \cref{fig:attractor-write,fig:attractor-hold,fig:attractor-move} show that the trained networks exhibit the intended qualitative operations. They do not provide quantitative convergence rates, target overlays, or path-integration error. A reimplementation should plot decoded position against target position and measure write time, hold drift, and velocity gain over many trajectories.
+
+\subsection{Random state and weight noise}
+
+The robustness test writes a location, runs the hold dynamics with random state and weight perturbations, and plots average squared readout error against elapsed steps. One sweep varies the ratio of place to periodic units at fixed frequency; another varies frequency at an equal 32:32 split.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{kz/x2err_vs_nsteps.pdf}
+\caption[Error under random perturbations]{Squared location error over hold time. (a) Place/periodic ratios at frequency 7. (b) Frequencies for a 32:32 split. The curves select the 32:32, frequency-7 configuration as the best displayed mixed code. No confidence intervals or independent selection split are available.}
+\label{fig:attractor-random-noise}
+\end{figure}
+
+The selected mixed configuration has lower reported error than the place-only network over much of the displayed horizon. This observation is conditional on the tested widths, decoder, noise scale, training schedule, and selection procedure. Because the same figure both searches over configurations and displays their performance, it should be treated as exploratory unless a separate confirmatory set existed.
+
+Equal neuron count is useful but incomplete budget matching. The codes may differ in expected total activity, recurrent weight norm, effective transport gain, decoder bias, and hyperparameter-selection effort. Each of those quantities could affect error independently of periodicity.
+
+\subsection{Fixed connection perturbation}
+
+The second test disables per-step random noise and adds one fixed random matrix with entries drawn uniformly from $(-\sigma,\sigma)$ to the recurrent weights. Although the perturbation is described as being added to the symmetric matrix, an unconstrained random matrix contains both symmetric and antisymmetric parts. It can therefore deform restoration and introduce drift.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{kz/x2err_vs_sigma.pdf}
+\caption[Error under a fixed weight perturbation]{Absolute readout error versus fixed perturbation scale. The selected mixed code is lower in part of the small-perturbation regime; the advantage does not persist uniformly as perturbations increase.}
+\label{fig:attractor-fixed-perturbation}
+\end{figure}
+
+The appropriate conclusion is regime-specific. The selected mixed code tolerates some small fixed perturbations better in the reported output, but there is no general dominance. A stronger test should perturb symmetric and antisymmetric components separately, draw many perturbation matrices at each scale, and report both typical errors and catastrophic phase-aliasing events.
+
+\subsection{Long-run fixed-point map}
+
+To probe the state geometry, the analysis initializes the network at codes spanning $x\in[0,1]$, disables test noise, runs the hold dynamics for a long horizon, and plots decoded output against input.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.76\textwidth]{kz/step_example.pdf}
+\caption[Long-run input--output map]{Decoded location after 1,000 noiseless hold steps as a function of initialized location. Staircases indicate convergence to discrete decoded fixed points. The selected mixed network has finer steps in this example.}
+\label{fig:attractor-fixed-points}
+\end{figure}
+
+An ideal line attractor would produce a diagonal map. The staircases in \cref{fig:attractor-fixed-points} instead indicate quantization into point attractors. Finer steps in the mixed example imply more decoded fixed points and potentially lower quantization error. The plot does not measure basin radius, contraction rate, or escape probability, so it cannot establish that those fixed points are deeper or more robust. Direct perturbation around each fixed point is needed for that claim.
+
+\section{How to interpret periodic error correction}
+\label{sec:attractor-interpretation}
+
+The most concrete mechanism is local phase resolution. A periodic block with frequency $k$ changes rapidly with location, so small location differences create larger activity differences. Coupling that block to a localized code can increase the number of distinguishable stable states. The localized block is essential because it identifies which of the repeated phase-compatible positions is intended.
+
+This mechanism has two failure modes. First, if corruption moves the state beyond the range in which the place block resolves phase, the periodic code can produce a large aliasing error rather than a small local error. Second, stronger periodic transport can amplify velocity or weight-calibration errors. A complete evaluation must therefore report the full error distribution, not only its mean, and distinguish local drift from catastrophic jumps.
+
+The result is compatible with this mechanism because the mixed network has a finer fixed-point staircase and lower error in selected noise regimes. It does not isolate the mechanism causally because activity, decoder, and norm budgets are not matched.
+
+\section{Multiple modules and two dimensions}
+\label{sec:attractor-extensions}
+
+Biological grid codes use multiple modules and two-dimensional firing lattices. A multi-module one-dimensional code would concatenate phases
+\begin{equation}
+\varphi_m(x)=k_mx\bmod 1,
+\qquad m=1,\ldots,L,
+\end{equation}
+with scales chosen so that their joint phase disambiguates a large range. Theory predicts strong tradeoffs among resolution, range, noise, and neuron allocation \citep{ss11,wei15,stemmler15}. The one-module comparison cannot test those predictions.
+
+For two-dimensional position $\vect{r}=(x,y)$, transport requires at least two control directions:
+\begin{equation}
+\label{eq:attractor-2d-transport}
+\mat{W}_{\mathrm{eff}}(\vect{v})
+=\mat{S}+\alpha(v_x\mat{A}_x+v_y\mat{A}_y).
+\end{equation}
+A grid module lives on a two-dimensional periodic phase space, topologically a torus. A lattice matrix maps physical displacement to phase before wrapping. Triangular spatial firing then arises from the lattice geometry rather than from independently taking each Cartesian coordinate modulo one. This construction remains a proposed extension and should be implemented and tested.
+
+\section{What the study supports}
+\label{sec:attractor-discussion}
+
+The reported results support three bounded conclusions. First, backpropagation through noisy recurrent dynamics can produce networks that qualitatively write, hold, and transport prescribed one-dimensional codes. Second, selected mixed place--periodic configurations have lower location error than the place-only configuration under parts of the tested random and fixed perturbation regimes. Third, the selected mixed example has more finely spaced decoded fixed points after long noiseless evolution.
+
+The results do not explain the existence, lattice geometry, or module organization of biological grid cells. They do not establish a uniformly superior code, a fair comparison under all relevant budgets, or a deeper energy landscape. The simulation is best viewed as a constructive example linking denoising-style training, recurrent stabilization, and periodic redundancy.
+
+The next experiments are clear: recover or define the decoder; separate tuning from confirmatory evaluation; match neuron count, activity, parameter norm, compute, and decoder capacity; run many seeds; measure basin geometry directly; characterize aliasing tails; add multiple modules; and implement two-dimensional path integration. Those tests would turn a suggestive example into an evidence-calibrated comparison.

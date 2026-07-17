@@ -1,0 +1,79 @@
+\chapter{Questions, Thesis, and Contributions}
+\label{chap:introduction}
+
+\section{The problem: learning structure from restoration}
+\label{sec:intro-problem}
+
+A representation is useful when it makes relevant structure explicit. For a natural image, the representation might identify a small set of oriented features and the dependencies among them. For an animal's location, it might encode position in a population activity pattern that can be held despite neural noise and updated during motion. These examples differ in both substrate and purpose, but they create the same methodological question:
+
+\begin{quote}
+What structure can be learned by corrupting a valid observation or state and training a system to restore it?
+\end{quote}
+
+This question is narrower than asking how the brain or an artificial network represents the world in general. It specifies an intervention (corruption), a target (the uncorrupted observation or state), and a measurable failure (restoration error). Those ingredients make it possible to discuss a learning signal without assuming that labels are available.
+
+The central thesis of this dissertation is that a corruption--restoration objective can reveal two kinds of local structure. First, it can reveal \emph{dependencies} that determine which latent variables should vary together. Second, in a recurrent system, it can learn \emph{dynamics} that return perturbed states toward a desired set. A separate transport operator can then move a state along that set. The distinction between restoration and transport will be important throughout: a vector pointing toward a set and a vector tangent to it perform different computations.
+
+\section{Representations and the level of explanation}
+\label{sec:intro-level}
+
+Let an observation be $\vect{x}\in\R^N$ and a representation be $\vect{s}\in\R^M$. An encoder maps $\vect{x}$ to $\vect{s}$; a decoder or readout maps $\vect{s}$ back to an observation or task variable. This notation does not by itself say whether $\vect{s}$ is a literal vector of neural firing rates, the latent state of a computational model, or a feature vector used by an algorithm. A biological interpretation requires additional evidence connecting model variables to measurements.
+
+The two studies in this dissertation operate primarily at the computational and algorithmic levels. They ask what objective is being optimized, what information a code preserves, and how a finite network could implement the corresponding inference or dynamics. Similarity between learned filters and receptive fields, or between a simulated periodic code and grid-cell firing, motivates the models. It does not establish that the brain uses the same training rule, parameterization, or architecture.
+
+This separation addresses a recurring ambiguity in computational modeling. A model can be informative in at least three ways: it can implement a useful computation; it can reproduce a measured phenomenon; or it can identify a plausible biological mechanism. Evidence for one role does not automatically establish the other two.
+
+\section{Study I: dependencies in sparse image codes}
+\label{sec:intro-sparse}
+
+Sparse coding represents an image patch as a linear combination of basis functions while penalizing the number or magnitude of active coefficients \citep{ob96,ob97}. When learned from natural images, the basis functions often become localized and oriented. This result is important in computational neuroscience because such functions resemble a subset of receptive fields in primary visual cortex. Standard sparse coding, however, typically uses a factorial penalty: each coefficient is penalized independently even though natural-image coefficients have higher-order dependencies \citep{zc99,se01,ky09}.
+
+Group sparse coding replaces independent penalties with penalties on groups of coefficients. If the groups are specified in advance, the model can express the idea that several features should become active together. Independent subspace analysis, topographic independent component analysis, and topographic sparse coding make particular structural choices, such as disjoint groups or overlapping neighborhoods on a fixed grid \citep{ha00,ha01ica,ha01sc}. The scientific question in \cref{chap:group-sparse} is whether the group memberships themselves can be learned from data.
+
+Direct maximum-likelihood learning of the group weights involves expectations under both a model prior and a posterior. The study takes a different route. It runs a finite sparse-inference procedure on a corrupted image, reconstructs the image, and differentiates the denoising loss through the inference steps to the group weights. The toy experiment asks whether this procedure recovers a known dependency. The natural-image experiment asks what groups are learned and whether those groups improve patch denoising relative to factorial and fixed-topographic constraints.
+
+The concrete claim is not that the method is a modern image denoiser. Rather, denoising supplies a tractable learning signal for a structured latent prior. Discriminative denoisers and weakly supervised restoration methods provide broader context \citep{zhang17,lehtinen18}, but their tasks and evaluation protocols do not constitute direct baselines for the patch experiment studied here.
+
+\section{Study II: restoration and transport in a spatial attractor}
+\label{sec:intro-attractor}
+
+Place cells and grid cells have firing rates that depend on an animal's location. A place cell is commonly described by one or a small number of localized place fields, whereas a grid cell exhibits multiple fields arranged approximately on a triangular lattice \citep{oj71,ht05}. Grid cells within a module share scale and orientation but differ in spatial phase; modules occur at multiple scales \citep{sh12,me14}. These observations motivate, but do not uniquely determine, a computational model of spatial memory and path integration.
+
+Continuous-attractor models explain how recurrent dynamics can constrain a population state to a low-dimensional set and translate that state in response to velocity \citep{ss02,by09}. Coding-theoretic analyses additionally show that periodic, multi-scale codes can support high precision and noise correction, provided that ambiguity across periods is resolved \citep{ss11,wei15,stemmler15}. The study in \cref{chap:attractor} combines these ideas in a deliberately simplified one-dimensional simulation.
+
+The model is given a desired family of activity patterns rather than learning the code from scratch. Noise is injected while recurrent parameters are trained by backpropagation through time. One component of the connection matrix is used to restore activity toward the desired code; a velocity-modulated antisymmetric component is used to move activity. The comparison asks whether, for the tested configurations, a mixture of localized place units and one periodic subpopulation retains location more accurately than a place-only code with the same total number of units.
+
+This simulation cannot answer the broad biological question ``Why do grid cells exist?'' It tests a conditional proposition: under a specific recurrent model, hand-designed decoder, training procedure, and noise regime, periodic redundancy may improve a location memory. That proposition becomes scientifically useful when its conditions and possible failure modes are stated explicitly.
+
+\section{Contributions}
+\label{sec:intro-contributions}
+
+This dissertation makes four bounded contributions.
+
+\begin{enumerate}[label=\textbf{C\arabic*.}]
+  \item It formulates group-structure learning as differentiation of a denoising objective through finite sparse inference, avoiding the explicit model sampling required by the displayed maximum-likelihood gradient.
+  \item It provides demonstrations on a toy distribution and whitened natural-image patches. The reported results suggest that learned overlapping groups capture dependencies among filters with similar position, orientation, and scale, with a modest denoising advantage over fixed structures in the tested setup.
+  \item It formulates a recurrent location memory with restoration and velocity-controlled transport, and shows that these operations can be trained under injected state and weight perturbations for prescribed one-dimensional codes.
+  \item It gives a conditional comparison between place-only and mixed place--periodic codes, identifies finer fixed-point spacing in the selected mixed-code example, and states the controls still required to attribute robustness specifically to periodic coding.
+\end{enumerate}
+
+A further contribution is conceptual clarity. The exposition qualifies several mathematical statements, separates reported outputs from reproducible results, and integrates related literature without treating methods from different experimental settings as direct comparisons.
+
+\section{Evidence and scope}
+\label{sec:intro-scope}
+
+The figures and numerical tables summarize the experiments analyzed in this dissertation. Missing experiment code and raw per-trial results prevent verification of exact update conventions, seed variation, or statistical uncertainty. Consequently:
+
+\begin{itemize}
+  \item ``reported result'' means a figure or table presented in this dissertation;
+  \item ``shows'' is reserved for a mathematical implication or a directly visible property of a displayed result;
+  \item ``suggests'' marks an interpretation that needs further controls; and
+  \item no comparison is called statistically significant because no sampling distribution or multi-seed analysis is available.
+\end{itemize}
+
+The dissertation does not include color-image experiments, multiple grid modules, two-dimensional path integration, or fits to neural recordings. Those are proposed follow-up studies, not results.
+
+\section{Roadmap}
+\label{sec:intro-roadmap}
+
+\Cref{chap:framework} develops the common primer: denoising as conditional estimation, the small-noise score interpretation, sparse and group-sparse coding, algorithm unrolling, recurrent dynamics, and attractor geometry. \Cref{chap:group-sparse} presents the group-structure study and its image results. \Cref{chap:attractor} presents the recurrent location-code study and separates its biological motivation from its model-specific conclusions. \Cref{chap:synthesis} compares the two uses of denoising, discusses related work, and lays out the experiments needed for stronger claims. The appendices provide derivations, preprocessing and training details, and a symbol glossary.

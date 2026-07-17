@@ -1,0 +1,198 @@
+\chapter{Primer: Denoising, Structured Codes, and Recurrent Dynamics}
+\label{chap:framework}
+
+\section{Purpose and notation}
+\label{sec:framework-purpose}
+
+This chapter supplies the shared mathematical language for the two studies. The goal is not to claim that sparse inference and recurrent spatial memory are the same model. It is to identify the common sequence--valid state, corruption, restoration--and then make the differences precise.
+
+\begin{table}[ht]
+\centering
+\caption{Core notation used throughout the dissertation. Dimensions are introduced when they first become relevant.}
+\label{tab:notation-core}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$\vect{x}$ & Clean observation, such as a vectorized image patch \\
+$\tilde{\vect{x}}$ & Corrupted observation \\
+$\vect{s}$ & Latent sparse coefficient vector \\
+$\mat{\Phi}$ & Dictionary whose columns are basis functions \\
+$\mat{\Lambda}$ & Nonnegative weights connecting groups to coefficients \\
+$\vect{u}_t,\vect{f}_t$ & Recurrent internal state and activity at time step $t$ \\
+$\mat{S},\mat{A}$ & Symmetric restoration and antisymmetric transport parameters \\
+$r(\cdot)$ & A reconstruction or restoration map \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A \emph{desired set} is the collection of states that the model should preserve. In the image study, the clean data distribution concentrates near a complicated subset of image space. In the attractor study, the desired set is prescribed by a code $\vect{c}(x)$ indexed by location $x$. Calling either set a ``manifold'' is a useful local idealization only when smoothness and dimensionality assumptions are stated; the empirical distribution can contain boundaries, intersections, or disconnected regions.
+
+\section{Denoising as conditional estimation}
+\label{sec:framework-denoising}
+
+Let clean samples follow $p(\vect{x})$ and let a corruption process draw $\tilde{\vect{x}}\sim q(\tilde{\vect{x}}\mid\vect{x})$. A restoration function $r_\theta$ can be trained with squared error:
+\begin{equation}
+\label{eq:denoising-objective}
+\mathcal{J}(\theta)
+=\E_{p(\vect{x})q(\tilde{\vect{x}}\mid\vect{x})}
+\left[\norm{\vect{x}-r_\theta(\tilde{\vect{x}})}_2^2\right].
+\end{equation}
+For an unrestricted function class, the pointwise minimizer is the conditional mean
+\begin{equation}
+\label{eq:conditional-mean}
+r^*(\tilde{\vect{x}})=\E[\vect{x}\mid\tilde{\vect{x}}].
+\end{equation}
+This identity gives denoising a precise interpretation. The optimal output is not necessarily the unique ``true'' clean sample; it averages over clean samples compatible with the corrupted observation. If that conditional distribution is multimodal, squared-error restoration can lie between modes.
+
+When corruption is small isotropic Gaussian noise with variance $\sigma^2$, regularized autoencoder theory relates the reconstruction displacement to the score of a smoothed density. Under appropriate capacity, smoothness, and small-noise assumptions,
+\begin{equation}
+\label{eq:score-reconstruction}
+r^*_{\sigma}(\vect{x})-\vect{x}
+=\sigma^2\nabla_{\vect{x}}\log p_{\sigma}(\vect{x})+o(\sigma^2),
+\end{equation}
+where $p_\sigma$ is the data density convolved with the corruption kernel \citep{alain14}. The displacement therefore points locally toward increasing density of the \emph{smoothed} distribution. It is safer to say this than to claim that every denoising autoencoder globally recovers a data manifold.
+
+Score-based generative models make this vector-field perspective explicit by learning scores across multiple noise levels and using them in stochastic sampling dynamics \citep{song19}. That connection does not make the models in this dissertation score-based generative models; it clarifies why corruption can reveal local distributional structure without evaluating a partition function.
+
+\section{Sparse coding primer}
+\label{sec:framework-sparse}
+
+Sparse coding models an observation $\vect{x}\in\R^N$ as
+\begin{equation}
+\label{eq:sparse-generative}
+\vect{x}=\mat{\Phi}\vect{s}+\vect{\epsilon},
+\end{equation}
+where $\mat{\Phi}\in\R^{N\times M}$ is a dictionary, $\vect{s}\in\R^M$ is a coefficient vector, and $\vect{\epsilon}$ is residual variation. A common inference objective is
+\begin{equation}
+\label{eq:sparse-objective}
+\vect{s}^*(\vect{x})=
+\arg\min_{\vect{s}}
+\left\{
+\frac{1}{2}\norm{\vect{x}-\mat{\Phi}\vect{s}}_2^2
++\lambda\norm{\vect{s}}_1
+\right\}.
+\end{equation}
+The reconstruction term rewards fidelity, while the $\ell^1$ penalty favors many exact zeros. The scale of each dictionary column must be constrained; otherwise the model can enlarge a column and shrink its coefficient without changing the reconstruction, reducing the apparent sparsity cost. A standard constraint is $\norm{\vect{\phi}_j}_2=1$ for each column $j$.
+
+The representation is the inferred coefficient vector, not the dictionary alone. A dictionary atom can be compared qualitatively with a receptive field, but a biological claim also depends on the inference dynamics, sign constraints, firing-rate interpretation, and the statistics of neural responses.
+
+\subsection{Iterative inference}
+
+The smooth part of \cref{eq:sparse-objective} has gradient
+\begin{equation}
+\nabla_{\vect{s}}\frac{1}{2}\norm{\vect{x}-\mat{\Phi}\vect{s}}_2^2
+=\mat{\Phi}^{\mathsf{T}}(\mat{\Phi}\vect{s}-\vect{x}).
+\end{equation}
+ISTA alternates a gradient step on this term with the proximal operator of the $\ell^1$ penalty:
+\begin{align}
+\vect{v}_{t+1}
+&=\vect{s}_t-\eta\mat{\Phi}^{\mathsf{T}}(\mat{\Phi}\vect{s}_t-\vect{x}),\\
+\vect{s}_{t+1}
+&=\operatorname{soft}_{\eta\lambda}(\vect{v}_{t+1}),
+\label{eq:ista}
+\end{align}
+where
+\begin{equation}
+\operatorname{soft}_{\theta}(v)
+=\operatorname{sign}(v)\max(\abs{v}-\theta,0)
+\end{equation}
+is applied componentwise. Step size $\eta$ must be compatible with the Lipschitz constant of the reconstruction gradient. Accelerated and learned variants can converge in fewer steps \citep{ba09,gregor10}.
+
+\section{Structured and group sparsity}
+\label{sec:framework-group}
+
+A factorial $\ell^1$ penalty treats coefficient magnitudes independently. Group sparsity instead assigns coefficients to possibly overlapping groups. In the parameterization used here, group $k$ has activity
+\begin{equation}
+\label{eq:group-activity-primer}
+z_k(\vect{s})=
+\sqrt{\varepsilon+\sum_{i=1}^{M}\Lambda_{ki}s_i^2},
+\qquad \Lambda_{ki}\geq 0,
+\end{equation}
+and the structured penalty is
+\begin{equation}
+\label{eq:group-penalty-primer}
+\Omega_{\mat{\Lambda}}(\vect{s})
+=\sum_{k=1}^{K}z_k(\vect{s}).
+\end{equation}
+The small $\varepsilon>0$ makes the derivative finite at zero. For fixed $\mat{\Lambda}$,
+\begin{equation}
+\label{eq:group-gradient-primer}
+\frac{\partial\Omega_{\mat{\Lambda}}}{\partial s_i}
+=s_i\sum_{k=1}^{K}\frac{\Lambda_{ki}}{z_k(\vect{s})}.
+\end{equation}
+This expression is a signed gradient. It is not itself a nonnegative soft-threshold parameter. For general overlapping groups, a true proximal update requires the proximal operator of the full structured penalty or an equivalent splitting method; efficient algorithms exist for broad classes of overlapping structured norms \citep{jenatton11,mairal11}.
+
+The group weights need their own constraints. Nonnegativity gives the square root a consistent interpretation, while scale or row-normalization constraints prevent a trivial collapse toward zero or an arbitrary rescaling of the regularizer. Because the available specification does not determine every update convention, \cref{chap:group-sparse} separates the intended objective from details that cannot be verified.
+
+\section{Finite inference as a differentiable computation}
+\label{sec:framework-unrolling}
+
+Suppose an iterative inference rule is written abstractly as
+\begin{equation}
+\label{eq:unrolled-state}
+\vect{s}_{t+1}=F_{\theta}(\vect{s}_t,\tilde{\vect{x}}),
+\qquad t=0,\ldots,T-1,
+\end{equation}
+and reconstruction is $\hat{\vect{x}}=\mat{\Phi}\vect{s}_T$. For fixed depth $T$, the inference procedure is a computation graph. A denoising loss
+\begin{equation}
+\label{eq:unrolled-loss}
+\mathcal{L}_T(\theta)
+=\norm{\vect{x}-\mat{\Phi}\vect{s}_T}_2^2
+\end{equation}
+can be differentiated through all $T$ steps. This is algorithm unrolling: parameters inside an optimizer-like recurrence are learned for the finite computation actually used \citep{gregor10}.
+
+The learned finite-depth system need not minimize the nominal infinite-iteration objective exactly. Its behavior depends on initialization, step sizes, number of steps, smoothing conventions, and whether parameters are shared across iterations. These are model specifications, not implementation trivia.
+
+\section{Recurrent dynamics, attractors, and transport}
+\label{sec:framework-recurrent}
+
+A discrete recurrent system evolves according to
+\begin{equation}
+\label{eq:rnn-general}
+\vect{u}_{t+1}=G(\vect{u}_t,\vect{a}_t;\theta),
+\qquad
+\vect{f}_t=\phi(\vect{u}_t),
+\end{equation}
+where $\vect{u}_t$ is an internal state, $\vect{f}_t$ is activity, and $\vect{a}_t$ is an external control such as velocity. A fixed point $\vect{u}^*$ satisfies $G(\vect{u}^*,\vect{0};\theta)=\vect{u}^*$. It is locally attracting when sufficiently small perturbations decay under the linearized dynamics.
+
+A continuous attractor is an idealized continuum of stable or neutrally stable states indexed by a continuous variable such as angle or position. Exact neutral stability along the represented dimension makes the system susceptible to drift, whereas discretization into nearby point attractors introduces a tradeoff: local perturbations can be corrected, but the represented value is quantized.
+
+The recurrent model decomposes its connection matrix into symmetric and antisymmetric parts,
+\begin{equation}
+\label{eq:symmetric-antisymmetric}
+\mat{W}(v)=\mat{S}+\alpha v\mat{A},
+\qquad
+\mat{S}^{\mathsf{T}}=\mat{S},
+\quad
+\mat{A}^{\mathsf{T}}=-\mat{A}.
+\end{equation}
+In a linear system, a symmetric operator has real eigenvalues and can amplify or suppress components; an antisymmetric operator generates norm-preserving rotations under a matrix exponential. In a nonlinear recurrent network, these facts provide intuition rather than a complete energy proof. In particular, an antisymmetric component generally cannot be used to infer the depth of a scalar energy basin. The model assigns $\mat{S}$ the restoration role and $\mat{A}$ the velocity-dependent transport role, and those roles must be evaluated by perturbation and trajectory tests.
+
+Training by backpropagation through time is mathematically the same differentiation-through-recurrence idea as \cref{sec:framework-unrolling}. The main difference is semantic: sparse inference iterates to estimate a code for a fixed input, whereas the recurrent network evolves a memory state through physical or simulated time.
+
+\section{The shared framework and its limits}
+\label{sec:framework-comparison}
+
+\begin{table}[ht]
+\centering
+\caption{The common corruption--restoration template and the aspects that remain study-specific.}
+\label{tab:framework-comparison}
+\begin{tabularx}{\textwidth}{@{}lXX@{}}
+\toprule
+Element & Sparse group learning & Recurrent location code \\
+\midrule
+Valid object & Clean image patch $\vect{x}$ & Prescribed activity $\vect{c}(x)$ \\
+Corruption & Additive image noise & State and weight perturbations \\
+Restoration output & Reconstructed image $\mat{\Phi}\vect{s}_T$ & Activity after recurrent evolution \\
+Learned structure & Group weights $\mat{\Lambda}$ & Recurrent parameters and nonlinearity \\
+Finite computation & Sparse-inference iterations & Recurrent time steps \\
+Transport & Proposed future latent operator & Velocity-modulated $\mat{A}$ \\
+Primary reported metric & Patch output SNR & Decoded location error \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The shared framework is therefore procedural: corrupt, restore, differentiate, and inspect the structure that makes restoration possible. It does not imply that image density and neural dynamics are interchangeable, that denoising is the only useful objective, or that a good simulation identifies a biological learning rule.
+
+The next two chapters use this primer to state each model carefully. Each reported result is interpreted at the strongest level justified by the displayed evidence and documented protocol.

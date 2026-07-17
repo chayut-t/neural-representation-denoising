@@ -1,0 +1,196 @@
+\chapter{Maximum-Likelihood Gradient for Group Weights}
+\label{app:group-ml}
+
+This appendix gives the maximum-likelihood derivation in full. Define
+\begin{equation}
+z_k(\vect{s})=
+\sqrt{\varepsilon+\sum_i\Lambda_{ki}s_i^2},
+\qquad
+\Omega_{\mat{\Lambda}}(\vect{s})=\sum_k z_k(\vect{s}),
+\end{equation}
+and the normalized prior
+\begin{equation}
+p(\vect{s};\mat{\Lambda})
+=\frac{\exp[-\Omega_{\mat{\Lambda}}(\vect{s})]}
+{Z(\mat{\Lambda})}.
+\end{equation}
+For a single observation,
+\begin{equation}
+p(\vect{x})=\int p(\vect{x}\mid\vect{s})
+p(\vect{s};\mat{\Lambda})\,d\vect{s}.
+\end{equation}
+
+First differentiate the prior log density:
+\begin{align}
+\frac{\partial}{\partial\Lambda_{ki}}
+\log p(\vect{s};\mat{\Lambda})
+&=-\frac{\partial\Omega}{\partial\Lambda_{ki}}
+-\frac{\partial\log Z}{\partial\Lambda_{ki}},\\
+\frac{\partial\log Z}{\partial\Lambda_{ki}}
+&=-\E_{p(\vect{s})}
+\left[\frac{\partial\Omega}{\partial\Lambda_{ki}}\right].
+\end{align}
+Therefore,
+\begin{equation}
+\frac{\partial}{\partial\Lambda_{ki}}
+\log p(\vect{s};\mat{\Lambda})
+=
+\E_{p(\vect{s})}
+\left[\frac{\partial\Omega}{\partial\Lambda_{ki}}\right]
+-\frac{\partial\Omega}{\partial\Lambda_{ki}}.
+\end{equation}
+Taking the posterior expectation gives
+\begin{equation}
+\label{eq:app-positive-negative}
+\frac{\partial\log p(\vect{x})}{\partial\Lambda_{ki}}
+=
+\E_{p(\vect{s})}
+\left[\frac{\partial\Omega}{\partial\Lambda_{ki}}\right]
+-
+\E_{p(\vect{s}\mid\vect{x})}
+\left[\frac{\partial\Omega}{\partial\Lambda_{ki}}\right].
+\end{equation}
+Finally,
+\begin{equation}
+\label{eq:app-group-weight-derivative}
+\frac{\partial\Omega}{\partial\Lambda_{ki}}
+=\frac{s_i^2}{2z_k(\vect{s})}.
+\end{equation}
+Substituting \cref{eq:app-group-weight-derivative} into \cref{eq:app-positive-negative} yields \cref{eq:lambda-likelihood-gradient}. The factor $1/2$ follows from differentiating the square root. A proportional learning rule can absorb this constant, but an exact derivative cannot omit it.
+
+Both expectations are difficult. The first requires samples from the model prior, including its normalization-induced competition among groups. The second requires posterior inference for each observation. The denoising method avoids estimating this likelihood gradient; it optimizes a different finite-depth restoration objective.
+
+\chapter{Image Data and Training Details}
+\label{app:image-details}
+
+\section{Image identifiers and preprocessing}
+\label{app:image-preprocessing}
+
+The training set used the following 35 van Hateren images:
+\begin{center}\small
+\begin{tabular}{rrrrrrr}
+00264&00315&00665&00695&00735&00765&00777\\
+00944&00968&01026&01042&01098&01251&01306\\
+01342&01726&01781&02226&02260&02262&02982\\
+02996&03332&03362&03401&03451&03590&03686\\
+03751&03836&03848&04099&04103&04172&04207
+\end{tabular}
+\end{center}
+The test set used different images:
+\begin{center}\small
+\begin{tabular}{rrrrrrr}
+00265&00316&00666&00696&00736&00766&00778\\
+00945&00969&01027&01043&01099&01252&01307\\
+01343&01727&01782&02227&02261&02263&02983\\
+02997&03333&03363&03402&03452&03591&03687\\
+03752&03837&03849&04100&04104&04173&04208
+\end{tabular}
+\end{center}
+
+Pixel values, which were linear in intensity, were log transformed. Each image was center cropped to $1024\times1024$ pixels and whitened in the frequency domain with
+\begin{equation}
+H(f)=f\exp\left(-\frac{f^2}{2f_c^2}\right),
+\qquad f_c=0.2375\ \text{cycles/pixel}.
+\end{equation}
+The frequency representation was cropped to its central $512\times512$ region before inverse transformation. Patches of size $16\times16$ were extracted with stride 8. Each patch mean was removed, and patches were divided by the training-set pixel standard deviation. The documented method does not specify boundary conventions, numerical precision, or whether test scaling reused the training statistic; a reimplementation must define these choices explicitly and fit every preprocessing statistic on training data only.
+
+\section{Group-model training record}
+\label{app:group-training}
+
+Dictionary columns were initialized from Gaussian noise and normalized. Diagonal and fully learned group matrices were initialized as diagonal matrices with diagonal value 4. Fixed-topographic matrices used overlapping $3\times3$ groups with nonzero values $4/9$.
+
+The training protocol was:
+\begin{itemize}
+  \item inference step parameter $\alpha=0.05$ and 150 inference steps;
+  \item 50,000 training iterations;
+  \item initial dictionary learning rate $\eta_0^{(d)}=0.001$;
+  \item initial group learning rates $0.01$, $0.005$, and $0.003$ for training corruption levels 0, 3, and 6 dB;
+  \item learning-rate schedule
+  \begin{equation}
+  \eta_i=\frac{\eta_0}{1+i/1000};
+  \end{equation}
+  \item momentum schedule
+  \begin{equation}
+  \mu_i=\min\left(1-\frac{0.5}{1+i/250},0.995\right),
+  \end{equation}
+  with $\mu=0.9$ for the last 5,000 iterations.
+\end{itemize}
+The procedure uses Nesterov momentum and Theano for automatic differentiation. The available specification does not include batch size, seeds, group-weight projection or normalization, stopping diagnostics, checkpoint selection, or every detail of the signed-gradient convention discussed in \cref{sec:group-inference-clarification}.
+
+\chapter{Attractor Training Details}
+\label{app:attractor-training}
+
+This appendix records the training configuration for the recurrent model in \cref{chap:attractor}.
+
+\begin{table}[htbp]
+\centering
+\caption{Attractor-training configuration.}
+\label{tab:attractor-training-config}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Quantity & Recorded value \\
+\midrule
+Total units & $N=64$ \\
+Training state-noise standard deviation & $0.1$ \\
+Training weight-noise standard deviation & $0.1$ \\
+Velocity gain & $\alpha=100$ \\
+Symmetric-weight constraint & maximum absolute entry 1 \\
+Antisymmetric-weight constraint & no magnitude constraint reported \\
+Time constant & $\tau=5$ \\
+Unrolled training horizon & 50 steps, no truncation reported \\
+Training iterations and batch size & 40,000 iterations; mini-batch size 256 \\
+Learning rates & $0.002$ for $a,b,c$; $0.05$ for $\mat{S},\mat{A}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The recorded momentum schedule was
+\begin{equation}
+\mu_i=\min\left(1-\frac{0.5}{1+i/250},0.995\right),
+\end{equation}
+with $\mu=0.9$ for the last 4,000 iterations.
+
+Important details remain unresolved: whether noise was sampled once or at every step; whether a reported standard deviation applied before or after the $1/\tau$ factor; how symmetry and antisymmetry were enforced after parameter updates; how positions and velocities were sampled; how boundary crossings were handled; how the mixed code was decoded; and whether the displayed frequency and cell ratio were selected on an independent validation set.
+
+\chapter{Symbols and Evidence Scope}
+\label{app:glossary}
+
+\section{Symbol glossary}
+
+\begin{longtable}{@{}p{0.18\textwidth}p{0.74\textwidth}@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+\endfirsthead
+\toprule
+Symbol & Meaning \\
+\midrule
+\endhead
+$\vect{x},\tilde{\vect{x}}$ & Clean and corrupted observations \\
+$\mat{\Phi}$ & Sparse dictionary; columns are atoms or basis functions \\
+$\vect{s}$ & Sparse coefficient vector \\
+$\mat{\Lambda}$ & Nonnegative group-to-coefficient weight matrix \\
+$z_k$ & Activity magnitude of group $k$ \\
+$\Omega_{\mat{\Lambda}}$ & Sum of group activities; the structured penalty \\
+$\varepsilon$ & Small smoothing constant inside group square roots \\
+$\vect{u}_t,\vect{f}_t$ & Recurrent internal state and activity \\
+$\mat{S}$ & Symmetric recurrent component assigned a restoration role \\
+$\mat{A}$ & Antisymmetric recurrent component assigned a transport role \\
+$v_t$ & Scalar velocity control in the one-dimensional recurrent model \\
+$\tau$ & Recurrent time constant \\
+$P_N^{\mathrm{line}},P_N^{\mathrm{ring}}$ & Localized line code and periodic ring-phase code \\
+\bottomrule
+\end{longtable}
+
+\section{Evidence labels}
+
+\begin{description}[style=nextline]
+  \item[Reported evidence] A figure or table produced by an experiment described in this dissertation.
+  \item[Mathematical clarification] A derivation or explicit consequence of the stated model.
+  \item[Interpretation] An explanation compatible with a reported result but not isolated by the experiment.
+  \item[Proposed test] A future experiment; never presented as a completed result.
+\end{description}
+
+\section{Evidence boundary}
+
+The empirical evidence needed for the argument is contained in the figures and tables of this dissertation. Where training code, random seeds, raw per-trial outputs, or uncertainty estimates are unavailable, the text limits its claims to visible qualitative structure and reported descriptive comparisons. Proposed tests are stated as future work rather than completed evidence.
