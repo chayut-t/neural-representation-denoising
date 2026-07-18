@@ -44,6 +44,14 @@ assume any command or module from the plan is present — verify first.
 - The plan (`§3`) sets defaults (Python 3.11, PyTorch, uv, Hydra, Typer, LuaLaTeX). Treat
   them as sensible starting points; the plan has the full detail when you need it.
 
+## Running experiments
+
+GPU experiments run on remote compute, not this laptop. Before launching or driving any GPU
+run, read `docs/infrastructure.local.md` — it holds the target cluster/queue, launch and
+`kubectl exec` commands, and gotchas. That file is git-ignored (infra stays out of the public
+repo), so keep cluster/queue/pod/bucket details there, never in committed files or prose.
+CPU-only work (quick reproduction, tests, preprocessing, figures) runs locally.
+
 ## Commands
 
 Legacy 2016 build (the only runnable build today), from `legacy/dissertation-2016/source/`:
