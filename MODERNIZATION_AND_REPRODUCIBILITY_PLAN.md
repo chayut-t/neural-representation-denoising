@@ -150,7 +150,21 @@ The repository must state this boundary prominently.
 
 **The reference platform is public and buildable from public sources.** Everything a third party needs to reconstruct the environment — the committed `uv.lock`, a `containers/Dockerfile.cuda` pinned to a *publicly pullable* base image digest, and generically described hardware requirements (e.g. "one CUDA GPU with ≥16 GB VRAM") — must live in the repository and resolve without any private registry, cluster, or account. The "reference platform," "reference machine," and "reference CUDA environment" named throughout this plan mean this public, reproducible-by-anyone specification, not any particular machine the authors happen to use.
 
-**Infrastructure non-disclosure.** The authors may run experiments on private infrastructure whose base image, package source, storage layout, or scheduler differ from the public reference. That is permitted provided (a) the public reference environment above is genuinely sufficient to reproduce the conclusions within the stated tolerances, and (b) no committed artifact — run manifest, config, figure sidecar, dissertation prose, container file, or CI log — contains infrastructure-identifying strings (internal registry URIs or image digests, cluster/queue/pod names, internal hostnames, private storage paths, or internal package-index URLs). Committed environment records use only vendor-neutral, non-identifying fields (GPU model class, CUDA/cuDNN/driver versions, OS, CPU, RAM). Any private execution details are kept in an uncommitted, git-ignored operator note.
+**Infrastructure non-disclosure.** The authors may run experiments on private infrastructure whose base image, package source, storage layout, or scheduler differ from the public reference. That is permitted provided (a) the public reference environment above is genuinely sufficient to reproduce the conclusions within the stated tolerances, and (b) no committed artifact — run manifest, config, figure sidecar, dissertation prose, container file, or CI log — contains infrastructure-identifying values (internal registry URIs or image digests, cluster/queue/pod names, internal hostnames, private storage paths, internal package-index URLs, account IDs, or credentials).
+
+**Two-layer provenance (do not discard scientific provenance to achieve non-disclosure).** Every run's execution environment is recorded in two layers:
+
+1. A **committed, sanitized execution-environment record** with full scientific provenance and no infrastructure identifiers: exact resolved Python and package versions and hashes, PyTorch build string, CUDA/cuDNN/driver versions, GPU vendor/model/architecture/VRAM, determinism flags, compiler/runtime details that affect numerics, an install-mode *category* (e.g. `public-reference-container`, `private-mirror`, `local`), and a stable **opaque environment fingerprint** (`execution_environment_fingerprint`). This record contains no host, account, registry, scheduler, or private-path values. Where an image digest is itself sensitive, commit a digest of the canonical sanitized record rather than the image digest.
+2. A **non-public mapping** from that fingerprint to raw operational detail (actual image, registry, mirror, host, paths), kept in an access-controlled, versioned internal provenance store — not only in a local git-ignored Markdown note.
+
+Run manifests separately record `execution_environment_fingerprint`, `public_reference_environment_digest`, and `reference_compatibility_status` (see §6.1).
+
+**Canonical results and public/private equivalence.** The project promises to recreate every quantitative result (§1). To keep that promise compatible with private execution and with the version latitude allowed by the software-stack decision record:
+
+- **Prefer** running confirmatory/release runs with the **public reference software environment** (public container + locked deps), even when the underlying hardware and scheduler are private. Such runs are canonical by construction.
+- If that is impossible for a given run, the private-environment run is labeled the **source run**, and a committed **cross-environment equivalence report** must show the public reference regenerating every reported metric/artifact for that run within its preregistered tolerance and preserving every claim-level conclusion.
+- A same-code/same-config/same-seed **portability smoke test** runs before expensive confirmatory work; a representative full seed and the final aggregate are re-executed on the public reference environment in Phases 10 and 13.
+- The release manifest must trace each reported value to either a public-reference run or a passed equivalence record; Gate P13 fails otherwise.
 
 ---
 
@@ -397,8 +411,8 @@ Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in 
 - claim ID, 2026-baseline section/artifact ID, and evidence status;
 - fully resolved Hydra configuration;
 - Git commit and dirty-worktree flag;
-- Python, PyTorch, CUDA, cuDNN, driver, operating system, CPU, GPU model class, and RAM information, recorded with vendor-neutral, non-identifying values only (see §2.4: no internal hostnames, cluster/queue/pod names, or private paths);
-- `uv.lock` hash and, when a container is used, the digest of the **public reference** container only; a private execution image's digest is recorded in the git-ignored operator note, not in the committed manifest;
+- the **sanitized execution-environment record** (§2.4 layer 1): exact resolved Python/package versions and hashes, PyTorch build string, CUDA/cuDNN/driver versions, GPU vendor/model/architecture/VRAM, OS, CPU, RAM, determinism flags, numerics-affecting compiler/runtime details, and an install-mode category — all vendor-neutral, with no internal hostnames, registry URIs, cluster/queue/pod names, account IDs, or private paths;
+- `uv.lock` hash; the three environment fields `execution_environment_fingerprint` (opaque; resolves to raw detail only via the non-public store in §2.4 layer 2), `public_reference_environment_digest` (the publicly pullable reference container's digest), and `reference_compatibility_status` (e.g. `public-reference-run`, `equivalence-verified`, or `pending-equivalence`);
 - dataset name, version, license identifier/text hash, archive hash, per-file manifest hash, and split-manifest hash;
 - preprocessing fit-manifest hash;
 - random seeds for Python, NumPy, PyTorch CPU, PyTorch CUDA, data sampling, corruption, and bootstrap procedures;
@@ -424,7 +438,7 @@ Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in 
 - `research`: deterministic algorithms requested; warnings recorded; used for normal development.
 - `benchmark`: performance settings permitted, but at least five independent seeds required.
 
-For the reference release, rerun one full seed twice on the same reference machine and require byte-identical metrics or a documented tolerance. Across other platforms, use numerical tolerances and require the same qualitative conclusions.
+For the reference release, rerun one full seed twice on the same reference machine and require byte-identical metrics or a documented tolerance. Across other platforms, use numerical tolerances and require the same qualitative conclusions. All such tolerances come from the committed tolerance registry with owners and per-phase deadlines (decision `0005`): no confirmatory configuration freezes until its relevant primary-metric, artifact, and cross-environment (public-vs-private, §2.4) tolerances are committed.
 
 ---
 
@@ -548,11 +562,19 @@ Tasks:
    - 2016 and 2026 baseline hash verification;
    - baseline-to-working-edition lineage completeness;
    - citation/schema validation;
-   - an infrastructure-leak scan that fails if any committed file contains infrastructure-identifying strings (internal registry URIs/digests, cluster/queue/pod names, internal hostnames, private storage paths, internal package-index URLs), enforcing the §2.4 non-disclosure rule;
+   - **layered leak prevention** enforcing the §2.4 non-disclosure rule (a single generic-word deny-list is explicitly rejected: it would flag this plan's own use of "cluster/queue/pod," while a deny-list of the real private identifiers would itself disclose them). Three complementary controls:
+     1. **Structured-output allow-list** — JSON Schema / typed models for committed run manifests, configs, and sidecars; reject unknown fields and enforce safe value formats (paths repository-relative or approved public URI schemes only). This is the primary guarantee.
+     2. **Public repository scan** — a standard secret/high-entropy/credential scanner plus generic rules for account IDs, private URL forms, absolute home/scratch paths, and registry credentials; tested with synthetic canaries, never real private identifiers.
+     3. **Private pre-push/release scan** — organization-specific patterns loaded from a configuration *outside* the repository, run over staged changes, generated release bundles, and public logs (not only already-committed files).
    - container builds on release or scheduled runs, using only publicly pullable base images.
 11. Write a minimal README quick start and contributor setup.
 
-**Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels.
+**Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels. Additionally, to enforce the §2.4 public-reference requirements:
+
+- the CPU and CUDA Dockerfiles use digest-pinned, publicly pullable base images and build without private credentials (the exact public CUDA base is selected and digest-pinned during this phase, once PyTorch/CUDA compatibility and memory needs are known — not before);
+- the public CUDA image passes import, numerical-smoke, provenance-schema, and synthetic-canary leak-scan tests;
+- a scheduled job verifies the pinned base remains pullable, and the release process archives or mirrors the OCI image where licensing permits;
+- if private execution is already in use during this phase, the same-code/same-config/same-seed portability smoke comparison (§2.4) passes.
 
 ### Phase 3 - Formalize and test the mathematics before training
 
@@ -933,8 +955,9 @@ Tasks:
    - integration step size;
    - hardware precision (`float32` versus selected `float64` checks).
 10. Create an automated robustness report that marks every confirmatory claim as supported, unsupported, mixed, or not testable.
+11. For any confirmatory results produced as private-environment source runs (§2.4), re-execute a representative full seed and the final aggregate on the **public reference environment** and commit the cross-environment equivalence report; freeze the robustness/statistical-conclusion criteria from the tolerance registry (decision `0005`) before final aggregation.
 
-**Gate P10:** Statistical scripts reproduce all reported values from frozen manifests; robustness conclusions are machine-readable and match the proposed prose.
+**Gate P10:** Statistical scripts reproduce all reported values from frozen manifests; robustness conclusions are machine-readable and match the proposed prose; every confirmatory value is either a public-reference run or carries a passed cross-environment equivalence record (§2.4).
 
 ### Phase 11 - Build the figure/table pipeline and result-to-prose interface
 
@@ -1091,10 +1114,11 @@ Tasks:
 8. Verify artifact hashes against the candidate release manifest and revalidate both baseline manifests.
 9. Repeat one full seed on the same reference environment.
 10. Run the quick profile on macOS and Linux CPU; run the full profile on at least the public reference CUDA environment (generic CUDA hardware meeting the stated VRAM requirement, not a specific internal machine).
-11. Ask an independent reader who did not implement the code to follow the README and record every ambiguity.
-12. Fix documentation or automation; do not solve verification problems with undocumented manual steps.
+11. Confirm the release manifest traces **every** reported value to either a public-reference run or a passed cross-environment equivalence record (§2.4); any value that can be traced to neither fails the gate.
+12. Ask an independent reader who did not implement the code to follow the README and record every ambiguity.
+13. Fix documentation or automation; do not solve verification problems with undocumented manual steps.
 
-**Gate P13:** A clean independent run produces a valid dissertation and all expected artifacts; deviations are within documented tolerances; the verifier signs the release checklist.
+**Gate P13:** A clean independent run on the public reference environment produces a valid dissertation and all expected artifacts; deviations are within documented tolerances; **every reported value traces to a public-reference run or a passed cross-environment equivalence record**, and the release manifest fails the gate if any value can be traced to neither; the verifier signs the release checklist.
 
 ### Phase 14 - Publish and archive the GitHub repository
 
@@ -1380,4 +1404,6 @@ These links guide implementation; exact software versions, dataset hashes, and t
 
 ## 16. First action when execution begins
 
-Phase 0 has passed. Begin with **Phase 1 only**: validate the intact relocation to `legacy/rewrite-2026/`, create its manifest and archival tag, inventory the primary 2026 PDF, and freeze claim/decision records. Do not scaffold the modern package, download data, or edit dissertation prose until Gate P1 passes. Thereafter execute phases in order and stop at every gate whose acceptance criteria are not met.
+Phases 0 and 1 have passed (Gate P1 satisfied and independently verified on 2026-07-18). The completed Phase 1 artifacts — the frozen `legacy/rewrite-2026/` tree and tag `archive/rewrite-2026-baseline`, `docs/rewrite-2026-inventory.csv`, `docs/baseline-audit-2026.md`, `docs/claim-evidence-matrix.md`, and `docs/decisions/` — are immutable inputs to the remaining work; do not regenerate or mutate them.
+
+Begin with **Phase 2**: scaffold the modern repository and development environment (package skeleton, `pyproject.toml`/`.python-version`/`uv.lock`, quality tooling, publicly pullable CPU/CUDA containers, the `dissertation/` working tree derived from the frozen 2026 source, CI including layered leak prevention, and a minimal README). Do not download datasets or edit dissertation prose beyond reproducing the frozen 2026 structure until Gate P2 passes. Thereafter execute phases in order and stop at every gate whose acceptance criteria are not met.

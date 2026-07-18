@@ -23,8 +23,12 @@ base image at pod-creation time. Details of the environment itself are kept out 
      platform/Python, transferred **directly** to the environment's persistent storage (no external
      object-store staging), and installed with `pip --no-index`.
 - **No external object storage** is used to stage packages, code, or data (explicit constraint).
-- Every run records the actual resolved versions, base image identity, and install method
-  (plan §6.1) so the offline install is auditable and reproducible.
+- Every run records provenance in the two layers of plan §2.4: (1) a committed, sanitized
+  execution-environment record — exact resolved versions/hashes, PyTorch build string,
+  CUDA/cuDNN/driver, GPU model/arch/VRAM, determinism flags, install-mode *category*, and an opaque
+  `execution_environment_fingerprint` — with no registry/host/path identifiers; and (2) a non-public,
+  access-controlled, versioned mapping from that fingerprint to the raw base image, mirror, and paths.
+  The actual private base-image digest is never in the committed manifest.
 
 ## Alternatives considered
 
@@ -40,6 +44,9 @@ not the public docs). The public reproducibility story still describes only a ge
 standard `uv`-based environment; the offline mechanism is an internal portability detail. Concrete
 operational commands live in `docs/infrastructure.local.md` (git-ignored).
 
-This record implements plan §2.4 ("Infrastructure non-disclosure") and §3.1: the committed
-workflow targets only the public reference environment, private install mechanics stay in the
-git-ignored operator note, and CI includes an infrastructure-leak scan (plan Phase 2, task 10).
+This record implements plan §2.4 (infrastructure non-disclosure, two-layer provenance, and
+public/private equivalence) and §3.1: the committed workflow targets only the public reference
+environment; the fingerprint→raw-detail mapping lives in an access-controlled versioned store (a
+local git-ignored operator note is a stopgap, not the durable store); private-environment
+confirmatory runs are labeled source runs and require a committed cross-environment equivalence
+report; and CI enforces the layered leak controls (plan Phase 2, task 10).

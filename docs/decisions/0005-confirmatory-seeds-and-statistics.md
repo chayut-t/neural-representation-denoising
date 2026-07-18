@@ -28,6 +28,25 @@ reproducible inference.
 - **No tuning on test:** config-selection code cannot read test metrics before the confirmatory
   freeze; split manifests immutable.
 
+## Tolerance registry (owners + deadlines)
+
+"Within the stated tolerances" is a normative dependency across plan §2.4, §3.1, Phase 2, and
+Phase 13, so tolerances cannot stay indefinitely as "a documented tolerance." We do **not** invent
+numbers before implementations/benchmarks exist; instead a committed tolerance registry
+(`docs/tolerances.md` or `results/tolerances/`, created in Phase 2) fixes each tolerance by a
+deadline, and **no confirmatory configuration freezes until its relevant cross-environment
+tolerance is committed**:
+
+| When due | Tolerances to fix |
+|---|---|
+| Phase 2 | environment/bootstrap and tiny deterministic regression tolerances |
+| Phases 3–5 | numerical-gradient, solver, and faithful-reimplementation tolerances |
+| Before each Phase 6–9 confirmatory freeze | primary-metric, artifact, and **cross-environment** (public-vs-private, §2.4) tolerances for that experiment family |
+| Phase 10 | robustness / statistical-conclusion criteria, frozen before final aggregation |
+
+Each registry entry has an owner and a phase deadline. Phase 10 is too late for primary
+confirmatory tolerances; those are frozen at each family's confirmatory freeze.
+
 ## Alternatives considered
 
 - 3 seeds to save compute — rejected: too few for a paired CI on the central C4-H2 claim.
