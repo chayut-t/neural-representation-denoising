@@ -39,3 +39,7 @@ A Phase 2 task adds the wheelhouse/mirror install path and documents it (in the 
 not the public docs). The public reproducibility story still describes only a generic CUDA GPU and a
 standard `uv`-based environment; the offline mechanism is an internal portability detail. Concrete
 operational commands live in `docs/infrastructure.local.md` (git-ignored).
+
+This record implements plan §2.4 ("Infrastructure non-disclosure") and §3.1: the committed
+workflow targets only the public reference environment, private install mechanics stay in the
+git-ignored operator note, and CI includes an infrastructure-leak scan (plan Phase 2, task 10).

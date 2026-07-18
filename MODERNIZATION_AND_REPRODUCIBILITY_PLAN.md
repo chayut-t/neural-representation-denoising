@@ -141,12 +141,16 @@ Track `source_edition` separately from `evidence_status`: at minimum `2016`, `re
 
 PyTorch documents that exact results are not guaranteed across releases, platforms, or CPU/GPU combinations. The project must therefore promise:
 
-- exact configuration and software reconstruction from the lockfile/container;
-- deterministic execution where supported on a specified reference platform;
+- exact configuration and software reconstruction from the lockfile and the public reference container;
+- deterministic execution where supported on a specified public reference platform;
 - tolerance-based numerical reproduction across other supported platforms;
 - statistical reproduction of conclusions across multiple seeds.
 
 The repository must state this boundary prominently.
+
+**The reference platform is public and buildable from public sources.** Everything a third party needs to reconstruct the environment — the committed `uv.lock`, a `containers/Dockerfile.cuda` pinned to a *publicly pullable* base image digest, and generically described hardware requirements (e.g. "one CUDA GPU with ≥16 GB VRAM") — must live in the repository and resolve without any private registry, cluster, or account. The "reference platform," "reference machine," and "reference CUDA environment" named throughout this plan mean this public, reproducible-by-anyone specification, not any particular machine the authors happen to use.
+
+**Infrastructure non-disclosure.** The authors may run experiments on private infrastructure whose base image, package source, storage layout, or scheduler differ from the public reference. That is permitted provided (a) the public reference environment above is genuinely sufficient to reproduce the conclusions within the stated tolerances, and (b) no committed artifact — run manifest, config, figure sidecar, dissertation prose, container file, or CI log — contains infrastructure-identifying strings (internal registry URIs or image digests, cluster/queue/pod names, internal hostnames, private storage paths, or internal package-index URLs). Committed environment records use only vendor-neutral, non-identifying fields (GPU model class, CUDA/cuDNN/driver versions, OS, CPU, RAM). Any private execution details are kept in an uncommitted, git-ignored operator note.
 
 ---
 
@@ -171,7 +175,7 @@ These defaults make the plan executable. Change one only through a short archite
 | Experiment logs | Local JSON/JSONL/CSV/Parquet plus TensorBoard event files | No required proprietary service or account |
 | Large artifacts | Checksummed release/Zenodo archives | Public, immutable, and independent of a mutable tracking service |
 
-Do not require Weights & Biases, an institutional cluster, or cloud credentials. Optional adapters are acceptable, but the canonical workflow must run locally.
+Do not require Weights & Biases, an institutional cluster, or cloud credentials. Optional adapters are acceptable, but the canonical workflow must run locally or on the public reference container (§2.4). The authors may execute the heavy runs on private infrastructure, but that infrastructure must never become a dependency of the published workflow: a third party with only the public repository, the public reference container, and generic CUDA hardware must be able to reproduce every conclusion. Package installation on any private environment (e.g. via an internal mirror instead of PyPI) is an implementation detail recorded in a decision record and an uncommitted operator note, not a change to the committed `uv.lock`-based contract.
 
 ### 3.2 Image datasets
 
@@ -393,8 +397,8 @@ Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in 
 - claim ID, 2026-baseline section/artifact ID, and evidence status;
 - fully resolved Hydra configuration;
 - Git commit and dirty-worktree flag;
-- Python, PyTorch, CUDA, cuDNN, driver, operating system, CPU, GPU, and RAM information;
-- `uv.lock` hash and container digest when applicable;
+- Python, PyTorch, CUDA, cuDNN, driver, operating system, CPU, GPU model class, and RAM information, recorded with vendor-neutral, non-identifying values only (see §2.4: no internal hostnames, cluster/queue/pod names, or private paths);
+- `uv.lock` hash and, when a container is used, the digest of the **public reference** container only; a private execution image's digest is recorded in the git-ignored operator note, not in the committed manifest;
 - dataset name, version, license identifier/text hash, archive hash, per-file manifest hash, and split-manifest hash;
 - preprocessing fit-manifest hash;
 - random seeds for Python, NumPy, PyTorch CPU, PyTorch CUDA, data sampling, corruption, and bootstrap procedures;
@@ -528,7 +532,7 @@ Tasks:
 4. Separate dependency groups: `dev`, `image`, `latex-tools`, `cuda`, and `release` where practical.
 5. Export `pylock.toml` or a CycloneDX SBOM during releases; do not maintain an independently edited `requirements.txt`.
 6. Add Ruff, mypy, pytest, coverage, codespell, and pre-commit configuration.
-7. Create CPU and CUDA containers pinned by digest. Record the supported reference GPU/CUDA stack.
+7. Create CPU and CUDA containers pinned by digest, using **publicly pullable** base images (e.g. an official Python or NVIDIA CUDA image on a public registry) so any third party can build them without private credentials. Record the supported reference GPU/CUDA stack in generic terms. If the authors run on a private base image that cannot be published, that image is not committed and not required by the workflow; its identity and any internal install steps live only in the git-ignored operator note, and the public reference container must independently reproduce the conclusions within the stated tolerances.
 8. Implement a `system-info` command that writes the environment fields in Section 6.
 9. Create `dissertation/` as a new working tree derived from the frozen 2026 source:
    - retain a machine-readable mapping from every copied/translated file to its 2026 source hash;
@@ -544,7 +548,8 @@ Tasks:
    - 2016 and 2026 baseline hash verification;
    - baseline-to-working-edition lineage completeness;
    - citation/schema validation;
-   - container builds on release or scheduled runs.
+   - an infrastructure-leak scan that fails if any committed file contains infrastructure-identifying strings (internal registry URIs/digests, cluster/queue/pod names, internal hostnames, private storage paths, internal package-index URLs), enforcing the §2.4 non-disclosure rule;
+   - container builds on release or scheduled runs, using only publicly pullable base images.
 11. Write a minimal README quick start and contributor setup.
 
 **Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels.
@@ -1076,7 +1081,7 @@ The reviewed 2026 PDF already implements the desired five-chapter architecture. 
 
 Tasks:
 
-1. Provision a clean reference machine/container from documentation only.
+1. Provision a clean public reference machine/container from documentation only, using no private registry, cluster, or account (§2.4). The verifier must be able to complete this from the public repository alone.
 2. Clone the repository at the release candidate tag.
 3. Run `make bootstrap` and accept/download data through the documented flow.
 4. Run `make reproduce-quick`; compare to committed tolerance-based smoke references.
@@ -1085,7 +1090,7 @@ Tasks:
 7. Build the PDF to a new versioned build directory.
 8. Verify artifact hashes against the candidate release manifest and revalidate both baseline manifests.
 9. Repeat one full seed on the same reference environment.
-10. Run the quick profile on macOS and Linux CPU; run the full profile on at least the reference CUDA environment.
+10. Run the quick profile on macOS and Linux CPU; run the full profile on at least the public reference CUDA environment (generic CUDA hardware meeting the stated VRAM requirement, not a specific internal machine).
 11. Ask an independent reader who did not implement the code to follow the README and record every ambiguity.
 12. Fix documentation or automation; do not solve verification problems with undocumented manual steps.
 
@@ -1245,7 +1250,8 @@ Every full run must log wall time, peak CPU/GPU memory, energy estimate if avail
 | Place-grid benefit is due to power/weight/decoder confounds | Invalid error-correction conclusion | Equal-budget controls, constrained weights, common decoders, direct basin measurements |
 | Grid code improves local precision but causes alias failures | Average MSE hides catastrophic errors | Report full error distribution and catastrophic-error probability across regimes |
 | Test-set leakage through configuration selection | Inflated claims | Separate immutable manifests and make selection code unable to read test metrics before freeze |
-| Full results vary by hardware | Reproduction disputes | Reference container/hardware, deterministic mode, repeated seed, tolerance and statistical contracts |
+| Full results vary by hardware | Reproduction disputes | Public reference container/hardware, deterministic mode, repeated seed, tolerance and statistical contracts |
+| Private execution infra leaks into the public repo | Discloses internal infrastructure; couples reproduction to unavailable systems | Public reference environment is the only committed target (§2.4); vendor-neutral env records; CI infrastructure-leak scan; private details only in a git-ignored operator note |
 | Revised writing outruns results | Unsupported polished narrative | Claim-evidence matrix; write results before abstract/conclusion; generated numerical macros |
 | The 2026 baseline is mistaken for a reproduction | Historical values gain unjustified authority | Keep it under `legacy/`; label copied values historical; require three-edition lineage for every empirical artifact |
 | A rerun overwrites a prior artifact | Provenance and negative results are lost | New run/build IDs, collision failure, immutable manifests, and append-only release promotion |
