@@ -46,6 +46,8 @@ jobs:
         run: uv sync --locked --extra image
       - name: Run tests
         run: uv run pytest -q
+      - name: Environment self-check (import + provenance-schema + numerical-smoke + canary)
+        run: uv run neural-repr-verify check-image
 
   provenance-and-leaks:
     name: baseline hashes, lineage, layered leak prevention

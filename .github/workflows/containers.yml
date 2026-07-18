@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Dockerfile.cpu (no private credentials)
         run: docker build -f containers/Dockerfile.cpu -t neural-repr:cpu .
+      - name: Image self-check (import + provenance-schema + numerical-smoke + canary leak-scan)
+        run: docker run --rm neural-repr:cpu neural-repr-verify check-image
       - name: Smoke-run system-info
         run: docker run --rm neural-repr:cpu neural-repr-verify system-info --install-mode public-reference-container
 

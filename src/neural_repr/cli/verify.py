@@ -12,7 +12,10 @@ import pathlib
 
 import typer
 
-from neural_repr.provenance import collect_execution_environment
+from neural_repr.provenance import (
+    collect_execution_environment,
+    validate_execution_record,
+)
 
 app = typer.Typer(
     name="neural-repr-verify",
@@ -65,6 +68,38 @@ def system_info(
         typer.echo(f"wrote execution-environment record to {output}")
     else:
         typer.echo(payload)
+
+
+@app.command("check-image")
+def check_image() -> None:
+    """Self-check for the public reference container (Gate P2 image checks).
+
+    Runs, inside whatever environment invokes it: package import, a
+    provenance-schema validation of the ``system-info`` record, and a
+    deterministic numerical smoke computation. Exits non-zero on any failure so
+    it can gate the built public image in CI.
+    """
+    import neural_repr  # import check
+    from neural_repr.common import numerical_smoke
+    from neural_repr.provenance.leak_patterns import canaries_all_detected
+
+    record = collect_execution_environment(install_mode="public-reference-container").to_record()
+    validate_execution_record(record)  # provenance-schema check (raises on violation)
+
+    smoke = numerical_smoke(seed=0)
+    repeat = numerical_smoke(seed=0)
+    if smoke["fingerprint"] != repeat["fingerprint"]:
+        typer.echo("numerical smoke is not repeatable within process", err=True)
+        raise typer.Exit(1)
+
+    if not canaries_all_detected():
+        typer.echo("synthetic-canary leak scan failed to flag known patterns", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(
+        f"check-image OK: neural_repr {neural_repr.__version__}; "
+        f"provenance-schema valid; numerical-smoke {smoke['fingerprint']}; canary-scan armed"
+    )
 
 
 def main() -> None:

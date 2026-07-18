@@ -20,9 +20,12 @@ from neural_repr.provenance.environment import (
     collect_execution_environment,
     environment_fingerprint,
 )
+from neural_repr.provenance.schema import SchemaError, validate_execution_record
 
 __all__ = [
     "ExecutionEnvironment",
+    "SchemaError",
     "collect_execution_environment",
     "environment_fingerprint",
+    "validate_execution_record",
 ]

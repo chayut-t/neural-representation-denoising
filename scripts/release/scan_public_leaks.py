@@ -18,24 +18,16 @@ Exit non-zero if any tracked file matches. Run: python scripts/release/scan_publ
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# (name, compiled regex). Deliberately generic; extend via review, not with real values.
-PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("cloud-account-id", re.compile(r"\b\d{12}\b\.dkr\.ecr\.")),
-    ("ecr-registry", re.compile(r"\d+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com")),
-    ("codeartifact-url", re.compile(r"[a-z0-9-]+\.d\.codeartifact\.[a-z0-9-]+\.amazonaws\.com")),
-    ("internal-domain", re.compile(r"https?://[a-z0-9.-]+\.(?:internal|corp|a2z\.com)\b")),
-    ("abs-home-path", re.compile(r"/(?:Users|home)/[a-z][a-z0-9_-]+/", re.IGNORECASE)),
-    ("abs-scratch-path", re.compile(r"/scratch/[a-z][a-z0-9_-]+")),
-    ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("bearer-token", re.compile(r"(?i)\b(?:authorization|bearer)\b\s*[:=]\s*[A-Za-z0-9._-]{20,}")),
-]
+# Patterns live in the package so the container self-check shares one source of
+# truth with this repo scanner (plan §2.4). Import from src/ without installing.
+sys.path.insert(0, str(REPO_ROOT / "src"))
+from neural_repr.provenance.leak_patterns import PATTERNS  # noqa: E402
 
 # Extensions treated as scannable text; binaries/data are skipped.
 TEXT_SUFFIXES = {

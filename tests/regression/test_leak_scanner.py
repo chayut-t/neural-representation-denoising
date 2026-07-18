@@ -47,6 +47,13 @@ def test_innocuous_not_flagged(line: str) -> None:
     assert not any(pat.search(line) for _, pat in scanner.PATTERNS), f"false positive: {line!r}"
 
 
+def test_package_canaries_all_detected() -> None:
+    """The package-level canary self-check (used by check-image) must pass."""
+    from neural_repr.provenance.leak_patterns import canaries_all_detected
+
+    assert canaries_all_detected()
+
+
 def test_scan_repo_is_clean() -> None:
     """The tracked repo must currently have zero generic-pattern hits."""
     assert scanner.scan() == []

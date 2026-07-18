@@ -1,0 +1,39 @@
+# Pre-commit hooks (plan §7 Phase 2 task 6). Install with: uv run pre-commit install
+# Mirrors the CI quality + preservation/leak gates so issues are caught before commit.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^legacy/
+      - id: end-of-file-fixer
+        exclude: ^legacy/
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.29
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      # Preservation + non-disclosure gates run from the repo's own scripts so
+      # they cannot drift from CI.
+      - id: verify-baselines
+        name: verify legacy baselines match manifests
+        entry: uv run python scripts/release/verify_baselines.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: scan-public-leaks
+        name: public infrastructure-leak scan
+        entry: uv run python scripts/release/scan_public_leaks.py
+        language: system
+        pass_filenames: false
+        always_run: true
