@@ -57,8 +57,13 @@ TEXT_SUFFIXES = {
 }
 
 # Paths never scanned: the git-ignored operator note is not tracked anyway, but
-# guard against accidental inclusion; the scanner's own pattern strings are allowed.
-SKIP_SUBSTRINGS = ("infrastructure.local", "scripts/release/scan_public_leaks.py")
+# guard against accidental inclusion; the scanner's own pattern strings and the
+# scanner's canary test (which contains SYNTHETIC identifiers by design) are allowed.
+SKIP_SUBSTRINGS = (
+    "infrastructure.local",
+    "scripts/release/scan_public_leaks.py",
+    "tests/regression/test_leak_scanner.py",
+)
 
 
 def _tracked_files() -> list[Path]:
