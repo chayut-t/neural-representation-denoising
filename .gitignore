@@ -1,3 +1,32 @@
 # Scratch / working directories (not part of the reproducible pipeline)
 tmp/
 scratch/
+
+# Private operator note is excluded via .git/info/exclude (local-only), not here,
+# so its existence is not advertised in the public repo.
+
+# Data is never committed — only manifests/hashes are (plan §2, §3.2).
+data/raw/
+data/interim/
+data/processed/
+
+# Working experiment outputs (plan §5); promoted results live under results/ (committed).
+runs/
+
+# Dissertation build outputs; only build manifests are committed (plan §5).
+builds/dissertation/*/
+!builds/dissertation/.gitkeep
+
+# Python / uv / tooling
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
