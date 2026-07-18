@@ -1,0 +1,96 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: lint, types, spelling, lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.29"
+      - name: Lockfile is consistent with pyproject
+        run: uv lock --check
+      - name: Sync locked dev environment
+        run: uv sync --locked --extra image
+      - name: Ruff lint
+        run: uv run ruff check src tests scripts
+      - name: Ruff format check
+        run: uv run ruff format --check src tests
+      - name: mypy (strict)
+        run: uv run mypy
+      - name: codespell
+        run: uv run codespell src tests docs/decisions README.md
+
+  tests:
+    name: unit + numerical + regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.29"
+      - name: Sync locked environment
+        run: uv sync --locked --extra image
+      - name: Run tests
+        run: uv run pytest -q
+
+  provenance-and-leaks:
+    name: baseline hashes, lineage, layered leak prevention
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.29"
+      - name: Verify 2016 + 2026 baseline manifests (plan §2)
+        run: uv run python scripts/release/verify_baselines.py
+      - name: Baseline-to-working-edition lineage completeness
+        run: uv run python scripts/release/check_lineage.py
+      - name: Public infrastructure-leak scan (control 2)
+        run: uv run python scripts/release/scan_public_leaks.py
+      - name: Secret scan (gitleaks; control 2 defense-in-depth)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  dissertation:
+    name: dissertation LaTeX build (LuaLaTeX + biber)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install TeX Live (LuaLaTeX, latexmk, biber)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-luatex texlive-latex-extra texlive-fonts-recommended \
+            texlive-bibtex-extra biber latexmk
+      - name: Build the working dissertation edition
+        working-directory: dissertation
+        run: latexmk -r latexmkrc main.tex
+      - name: Fail on undefined references or citations
+        working-directory: dissertation
+        run: |
+          if grep -qiE 'undefined (reference|citation)|multiply.defined' main.log; then
+            echo "Undefined references/citations or duplicate labels found:"
+            grep -iE 'undefined (reference|citation)|multiply.defined' main.log
+            exit 1
+          fi
+      - name: Upload built PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: dissertation-pdf
+          path: dissertation/main.pdf

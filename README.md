@@ -30,6 +30,32 @@ Reproduction runs on a **public reference environment** — the committed `uv.lo
 pullable CUDA container, and generic CUDA hardware (≥16 GB VRAM). No private infrastructure is
 required; see the reproducibility boundary in the plan (§2.4).
 
+### Build a container
+
+```sh
+docker build -f containers/Dockerfile.cpu  -t neural-repr:cpu  .   # tests / quick profile
+docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .   # GPU profile (linux/amd64)
+```
+
+### Build the dissertation
+
+Requires TeX Live (LuaLaTeX, latexmk, biber). From `dissertation/`:
+
+```sh
+latexmk -r latexmkrc main.tex
+```
+
+## Contributing
+
+- Python 3.11 (managed by `uv`); dependencies are pinned in the committed `uv.lock` — edit
+  `pyproject.toml` and run `uv lock`, never hand-edit the lockfile.
+- Before pushing: `uv run ruff check src tests scripts`, `uv run ruff format src tests`,
+  `uv run mypy`, `uv run pytest`. CI runs these plus baseline-hash, lineage, and leak checks.
+- **Never edit anything under `legacy/`** (immutable archives) and never commit dataset files
+  or infrastructure identifiers (cluster/registry/host/private-path strings); CI enforces both.
+- Decisions that change data, equations, baselines, the writing engine, or claims need a record
+  under `docs/decisions/`.
+
 ## Layout
 
 - `src/neural_repr/` — the Python package (studies, data, evaluation, statistics, plotting,

@@ -1,0 +1,45 @@
+name: containers
+
+on:
+  release:
+    types: [published]
+  schedule:
+    # Weekly: verify the digest-pinned public bases remain pullable (Gate P2).
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  build-cpu:
+    name: build public CPU container
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Dockerfile.cpu (no private credentials)
+        run: docker build -f containers/Dockerfile.cpu -t neural-repr:cpu .
+      - name: Smoke-run system-info
+        run: docker run --rm neural-repr:cpu neural-repr-verify system-info --install-mode public-reference-container
+
+  build-cuda:
+    name: build public CUDA container (linux/amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Dockerfile.cuda
+        run: docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .
+      # No GPU on the runner: build-only. Numerical GPU smoke runs on the
+      # reference CUDA environment in later phases (Gate P13).
+
+  base-pullable:
+    name: pinned public bases remain pullable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull pinned base digests referenced by the Dockerfiles
+        run: |
+          set -euo pipefail
+          # Extract each pinned FROM digest and confirm it still pulls.
+          grep -hoE '(python|nvidia/cuda)@sha256:[0-9a-f]+' containers/Dockerfile.* | sort -u | while read -r ref; do
+            echo "pulling $ref"
+            docker pull "$ref" >/dev/null
+          done
+          echo "all pinned bases pullable"
