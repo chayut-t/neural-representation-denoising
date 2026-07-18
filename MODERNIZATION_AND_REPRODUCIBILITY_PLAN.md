@@ -1,31 +1,90 @@
 # Dissertation Modernization and Reproducibility Plan
 
-**Project:** Modern reproduction and revision of *Neural Representation Learning with Denoising Autoencoder Framework*  
-**Plan date:** 2026-07-15  
-**Plan status:** Execution specification; no implementation has begun  
-**Intended outcome:** A public GitHub repository that can recreate every quantitative result, table, and figure in a substantially revised dissertation from documented data and versioned code.
+**Project:** Modern reproduction and revision of *Neural Representation Learning with Denoising Autoencoder Framework*
+
+**Plan date:** 2026-07-17
+
+**Plan status:** Phase 0 complete; the 2026 rewrite has been reviewed and is now the narrative baseline; Phase 1 is next; modern experiment/code implementation has not begun
+
+**Primary narrative baseline:** `legacy/rewrite-2026/source/thesis.pdf` (content from commit `0c7617fcc28e6a3778fc44f5a7a59b3d4aa571e5`, subsequently relocated intact under `legacy/`), SHA-256 `c89423fa6470997760c274295444711532cb67e7b7eef824861e8c6eb16fed8a`
+
+**Intended outcome:** A public GitHub repository that can recreate every quantitative result and empirical table/figure in a substantially revised dissertation from documented data and versioned code.
+
+---
+
+## 0. Current state, completed work, and baseline authority
+
+### 0.1 Phase 0 review
+
+Phase 0 is complete for the 2016 dissertation archive. Commit `7572d3650acdc46e7d55bbb49566fbdf952aa710` and tag `archive/dissertation-2016` contain:
+
+- the preserved 2016 source tree, locally compiled PDF, and separate eScholarship PDF under `legacy/dissertation-2016/`;
+- a 105-entry `legacy/dissertation-2016/MANIFEST.sha256`, revalidated successfully on 2026-07-17;
+- `legacy/dissertation-2016/README.md`, including the provenance boundary, PDF relationship, known broken historical cross-reference, and absence of original experiment code; and
+- `docs/result-inventory.csv`, with 21 granular rows covering the historical figures, quantitative tables/values, and attractor configuration record.
+
+This satisfies Gate P0 for the materials available in this repository. The original Theano/Python/MATLAB experiment code, checkpoints, datasets, random seeds, and raw result records remain unavailable. Their absence is an enduring evidence boundary, not a reason to delay a clean-room faithful reimplementation. If any original code is later recovered, preserve it as a new immutable artifact and update provenance without rewriting either baseline.
+
+### 0.2 The 2026 rewrite changes the starting point
+
+Commit `0c7617fcc28e6a3778fc44f5a7a59b3d4aa571e5` added a self-contained 58-page rewrite titled *Denoising Objectives for Learning and Stabilizing Neural Representations*. It already provides the editorial foundation that the original plan deferred to Phase 12:
+
+- a five-chapter argument organized around restoration, representation structure, recurrent stabilization, and transport;
+- calibrated evidence language and an explicit reproducibility boundary;
+- a shared mathematical primer and symbol/evidence appendices;
+- corrections or qualifications for the group derivative, Gabor envelope, recurrent-dynamics/energy interpretation, and historical cross-reference;
+- a staged research program that closely matches Phases 3-10 of this plan; and
+- an initial literature matrix and bibliography update.
+
+The directory has now been relocated intact to `legacy/rewrite-2026/`. All 31 moved files were checked against their Git blob hashes from commit `0c7617f`; no content mismatch was found, and the PDF SHA-256 is unchanged.
+
+However, its empirical figures and numerical tables are still copied or transcribed historical results. The rewrite does not supply experiment code, checkpoints, per-seed records, uncertainty estimates, or machine-generated result provenance. It is therefore a strong narrative and mathematical baseline, not an independently reproduced scientific result and not a completed Gate P12 deliverable.
+
+### 0.3 Source-of-truth hierarchy and no-overwrite rule
+
+Use the following hierarchy throughout execution:
+
+1. `legacy/dissertation-2016/` is the immutable historical record and provenance authority for what was submitted in 2016.
+2. `legacy/rewrite-2026/source/thesis.pdf` is the primary narrative, structure, claim-calibration, and presentation baseline for the modern reproduction. When it and the adjacent 2026 LaTeX sources appear to disagree, the rendered PDF controls until the discrepancy is recorded and resolved.
+3. `legacy/rewrite-2026/source/`, `legacy/rewrite-2026/WRITING_PLAN.md`, and `legacy/rewrite-2026/LITERATURE_MATRIX.csv` are read-only supporting sources for creating the next edition.
+4. The future `dissertation/` tree is a new working edition derived from the 2026 baseline. It must be created at a new path; it must never replace or edit files under `legacy/rewrite-2026/`.
+
+No pipeline command may write under `legacy/`. Experiment runs, aggregate results, generated artifacts, dissertation builds, and releases must use new run IDs or content-addressed/versioned paths. A command must fail on an unexpected destination collision rather than overwrite an existing artifact. Promotion to a “current” result may update a small manifest or symlink, but the referenced prior artifacts must remain recoverable.
+
+### 0.4 Phase status after review
+
+| Work | Status | Consequence |
+|---|---|---|
+| Phase 0: preserve and inventory 2016 work | Complete | Do not repeat or mutate it; verify hashes in release checks |
+| 2026 narrative rewrite | Complete as a baseline only | Preserve it unchanged and use its PDF as the starting edition |
+| Phase 1 | Next | Freeze decisions, claims, and a 2026-baseline inventory before implementation |
+| Phases 2-11 | Pending | No modern package, data pipeline, reproduced runs, or generated empirical artifacts exist yet |
+| Phase 12 | Partially anticipated by the rewrite | Retain the architecture and calibrated prose, but revise it only after generated evidence is frozen |
+| Phases 13-14 | Pending | End-to-end verification and publication have not begun |
 
 ---
 
 ## 1. Outcome and definition of done
 
-The project is complete only when a new user can clone the repository on a clean machine, follow the documented data-license steps, run a short verification profile on CPU, run the full experiment profile on suitable GPU hardware, and build the revised dissertation PDF without manually editing any number, table, or figure.
+The project is complete only when a new user can clone the repository on a clean machine, follow the documented data-license steps, run a short verification profile on CPU, run the full experiment profile on suitable GPU hardware, and build a new dissertation edition derived from the 2026 PDF without manually editing any empirical number, quantitative table, or result figure.
 
 The final repository must contain:
 
 1. An immutable archival copy of the 2016 dissertation sources and PDF.
-2. A provenance statement explaining that the current workspace contains the dissertation and generated figures but not the original experiment code.
-3. A modern Python package implementing all models, training procedures, evaluation routines, and analyses used by the revised dissertation.
-4. Public-data download and validation tools. Dataset files themselves must not be committed or redistributed.
-5. A color-image version of the group sparse-coding study using a documented public RGB dataset.
-6. A faithful one-dimensional reproduction and a modernized extension of the place/grid attractor-network study.
-7. Version-controlled experiment configurations for every reported result.
-8. Machine-readable result manifests containing configuration, seed, dataset hashes, environment, Git commit, hardware, metrics, and artifact hashes.
-9. Scripts that generate every dissertation table and figure directly from validated result records.
-10. Rewritten LaTeX sources with corrected mathematics, clearer logic, updated literature, improved prose, and no unresolved references.
-11. A one-command dissertation build and a full end-to-end reproduction command.
-12. Automated tests and GitHub Actions checks for the code, data fixtures, result schemas, and LaTeX build.
-13. A tagged `v1.0.0` release, `CITATION.cff`, licenses, release checksums, and a permanent research-software archive such as Zenodo.
+2. An immutable, checksummed snapshot of the full 2026 rewrite, including the primary baseline PDF and its source commit.
+3. A provenance statement explaining that the historical and 2026 editions contain rendered figures but not the original experiment code or machine-readable result records.
+4. A lineage map from each 2026-baseline claim, empirical table, and figure to its 2016 ancestor and its final status: retained historical context, faithfully reimplemented, modernized, or retired.
+5. A modern Python package implementing all models, training procedures, evaluation routines, and analyses used by the new dissertation edition.
+6. Public-data download and validation tools. Dataset files themselves must not be committed or redistributed.
+7. A color-image version of the group sparse-coding study using a documented public RGB dataset.
+8. A faithful one-dimensional reproduction and a modernized extension of the place/grid attractor-network study.
+9. Version-controlled experiment configurations for every reported result.
+10. Machine-readable result manifests containing configuration, seed, dataset hashes, environment, Git commit, hardware, metrics, and artifact hashes.
+11. Scripts that generate every empirical dissertation table and result figure directly from validated result records. Source-authored notation tables and schematics must still have stable IDs and provenance, but need not pretend to be experiment outputs.
+12. New LaTeX sources derived from the 2026 baseline, with regenerated evidence, corrected mathematics, updated literature, improved prose, and no unresolved references.
+13. A one-command dissertation build and a full end-to-end reproduction command whose outputs never overwrite either baseline.
+14. Automated tests and GitHub Actions checks for the code, data fixtures, result schemas, artifact lineage, and LaTeX build.
+15. A tagged `v1.0.0` release, `CITATION.cff`, licenses, release checksums, and a permanent research-software archive such as Zenodo.
 
 ### Required completion commands
 
@@ -36,14 +95,14 @@ make bootstrap             # Install locked CPU/dev environment and verify syste
 make data-check            # Validate locally available datasets and licenses
 make test                  # Unit, integration, numerical, and schema tests
 make reproduce-quick       # Small deterministic CPU reproduction using public/synthetic fixtures
-make reproduce-ch2         # Full color sparse-coding experiment suite
-make reproduce-ch3         # Full attractor/grid-code experiment suite
+make reproduce-sparse      # Full color sparse-coding suite (2026 baseline Chapter 3)
+make reproduce-attractor   # Full attractor/grid-code suite (2026 baseline Chapter 4)
 make reproduce-all         # Both full suites plus statistical aggregation and figures
-make dissertation          # Build the revised PDF from generated artifacts
+make dissertation          # Build a new revision under a versioned build directory
 make verify-release        # Re-run all non-training validation and release checks
 ```
 
-`make reproduce-all` may require a GPU and substantial time. `make reproduce-quick` must finish on a normal CPU and exercise the same code paths with reduced data and iterations.
+Semantic study names are canonical because chapter numbers may change. Optional `make reproduce-ch3` and `make reproduce-ch4` aliases may target the two suites for readers of the 2026 baseline, but no command named `reproduce-ch2` may ambiguously mean the sparse study. `make reproduce-all` may require a GPU and substantial time. `make reproduce-quick` must finish on a normal CPU and exercise the same code paths with reduced data and iterations.
 
 ---
 
@@ -51,27 +110,29 @@ make verify-release        # Re-run all non-training validation and release chec
 
 ### 2.1 Preserve history before modernization
 
-- Do not overwrite or silently “clean up” historical files.
-- Before moving files, create a byte-level manifest of the current workspace, including SHA-256 hashes, sizes, Git status, and the current commit.
+- Do not overwrite or silently “clean up” historical files or the 2026 rewrite.
+- Before moving uncommitted material, create a byte-level manifest of the current workspace, including SHA-256 hashes, sizes, Git status, and the current commit. For relocation of a committed tree, verify every destination file against its source-commit blob before staging the rename.
 - Preserve the submitted eScholarship PDF separately from the locally compiled PDF.
 - Put historical source and generated figures under an immutable archival path and tag the preservation commit.
+- Freeze the 2026 rewrite with its own manifest and archival tag before creating `dissertation/`.
 - Record whether each historical artifact is original, reconstructed, or regenerated.
 
 ### 2.2 Separate three kinds of evidence
 
-Every result, caption, table, and prose claim must carry one of these statuses in the internal result registry:
+Every result, caption, empirical table, and prose claim must carry one of these evidence statuses in the internal result registry:
 
-- **Historical:** copied from the 2016 dissertation and not rerun.
+- **Historical:** copied from the 2016 dissertation, including historical values/assets republished in the 2026 rewrite, and not rerun.
 - **Faithful reimplementation:** newly implemented from the dissertation equations and appendices, with deliberate compatibility settings.
 - **Modernized:** corrected, extended, or run with new data/methods and therefore not numerically comparable without qualification.
 
-The revised dissertation must never call a modernized run an exact reproduction of a historical result.
+Track `source_edition` separately from `evidence_status`: at minimum `2016`, `rewrite-2026`, and `modern`. The 2026 rewrite is a narrative edition, not a fourth class of empirical evidence. The revised dissertation must never call a modernized run an exact reproduction of a historical result.
 
 ### 2.3 Data and results are immutable inputs to writing
 
 - Dissertation prose may interpret results but must not contain manually transcribed numerical values.
-- Tables must be generated as `.tex` fragments from result files.
-- Figures must be generated from result files and included by stable paths.
+- Quantitative tables must be generated as `.tex` fragments from result files.
+- Empirical figures must be generated from result files and included by stable paths. Source-authored schematics must be versioned and labeled explicitly as schematics.
+- Generated outputs are append-only: a rerun uses a new run/artifact/build ID, while a manifest records which immutable artifact is current.
 - Once confirmatory experiment configurations are frozen, do not tune on the test set.
 - Unexpected or negative results must change the dissertation claim, not be hidden by changing the analysis after the fact.
 
@@ -155,7 +216,7 @@ Never combine metrics from the two tracks in one table without an explicit block
 
 ### 3.4 Attractor-network data
 
-Chapter 3 is a theoretical simulation and does not need an external image-like dataset. Its canonical data will be deterministic synthetic locations and trajectories generated by code. Public neural recordings may be discussed in the literature review, but adding a recording-data fit is out of scope unless a later decision record expands the scientific question.
+Chapter 4 of the 2026 baseline is a theoretical simulation and does not need an external image-like dataset. Its canonical data will be deterministic synthetic locations and trajectories generated by code. Public neural recordings may be discussed in the literature review, but adding a recording-data fit is out of scope unless a later decision record expands the scientific question.
 
 ### 3.5 Licensing defaults
 
@@ -173,25 +234,25 @@ The code and rewritten dissertation should be organized around claims, not aroun
 
 ### 4.1 Unifying thesis
 
-**Proposed thesis:** Corruption-based learning can reveal dependencies that define a representation manifold and can train recurrent dynamics that return noisy neural states toward that manifold; complementary transport dynamics can then move states along the manifold.
+**Working thesis inherited from the 2026 baseline:** Corruption-based learning can reveal dependencies that define a representation manifold and can train recurrent dynamics that return noisy neural states toward that manifold; complementary transport dynamics can then move states along the manifold.
 
-This is a proposed framing. Final wording must wait until the confirmatory results are complete.
+The 2026 rewrite has already established this as the organizing argument. Final wording and strength must still wait until confirmatory results are complete.
 
-### 4.2 Chapter 2 hypotheses
+### 4.2 Sparse-coding hypotheses (2026 baseline Chapter 3)
 
-- **C2-H1:** Backpropagating a denoising objective through sparse inference can recover known group structure in controlled synthetic data.
-- **C2-H2:** On public color natural images, learned group structure captures reproducible dependencies in position, orientation, spatial frequency, and color direction.
-- **C2-H3:** Under matched inference, parameter, and compute conditions, learned group structure improves held-out denoising over factorial sparse coding.
-- **C2-H4:** Any benefit over a fixed topographic group model remains after seed variation and paired statistical analysis.
-- **C2-H5:** A two-dimensional minimum-wiring embedding is a useful description of the learned dependency graph, assessed against null graphs and higher-dimensional embeddings.
+- **C3-H1:** Backpropagating a denoising objective through sparse inference can recover known group structure in controlled synthetic data.
+- **C3-H2:** On public color natural images, learned group structure captures reproducible dependencies in position, orientation, spatial frequency, and color direction.
+- **C3-H3:** Under matched inference, parameter, and compute conditions, learned group structure improves held-out denoising over factorial sparse coding.
+- **C3-H4:** Any benefit over a fixed topographic group model remains after seed variation and paired statistical analysis.
+- **C3-H5:** A two-dimensional minimum-wiring embedding is a useful description of the learned dependency graph, assessed against null graphs and higher-dimensional embeddings.
 
-### 4.3 Chapter 3 hypotheses
+### 4.3 Attractor-network hypotheses (2026 baseline Chapter 4)
 
-- **C3-H1:** Training with state and weight noise produces recurrent dynamics that restore prescribed location-code states after perturbation.
-- **C3-H2:** Under equal neuron count, activity budget, parameter constraints, training budget, and decoder quality, a place-grid code can retain location more accurately than a place-only code in specified noise regimes.
-- **C3-H3:** Improved robustness is explained by directly measured basin geometry, fixed-point density, and drift resistance, not merely by visual inspection or weight magnitude.
-- **C3-H4:** The effect generalizes from the original one-dimensional, one-grid-module setup to preregistered multi-module and two-dimensional settings.
-- **C3-H5:** There are regimes where grid periodicity causes aliasing or catastrophic errors; the dissertation must characterize this tradeoff rather than presenting grid coding as uniformly superior.
+- **C4-H1:** Training with state and weight noise produces recurrent dynamics that restore prescribed location-code states after perturbation.
+- **C4-H2:** Under equal neuron count, activity budget, parameter constraints, training budget, and decoder quality, a place-grid code can retain location more accurately than a place-only code in specified noise regimes.
+- **C4-H3:** Improved robustness is explained by directly measured basin geometry, fixed-point density, and drift resistance, not merely by visual inspection or weight magnitude.
+- **C4-H4:** The effect generalizes from the original one-dimensional, one-grid-module setup to preregistered multi-module and two-dimensional settings.
+- **C4-H5:** There are regimes where grid periodicity causes aliasing or catastrophic errors; the dissertation must characterize this tradeoff rather than presenting grid coding as uniformly superior.
 
 ### 4.4 Language strength
 
@@ -228,8 +289,8 @@ neural-representation-denoising/
 │   ├── model/
 │   ├── trainer/
 │   ├── evaluation/
-│   ├── experiment/ch2/
-│   └── experiment/ch3/
+│   ├── experiment/sparse/
+│   └── experiment/attractor/
 ├── src/neural_repr/
 │   ├── cli/
 │   ├── common/
@@ -270,8 +331,11 @@ neural-representation-denoising/
 │   ├── figures/             # final generated PDF/SVG/PNG
 │   ├── tables/              # CSV plus generated TeX
 │   └── models/README.md     # links/checksums; large weights not in Git
+├── builds/
+│   └── dissertation/        # immutable build-ID directories; gitignored except manifests
 ├── dissertation/
-│   ├── main.tex
+│   ├── README.md            # lineage from the frozen 2026 baseline
+│   ├── main.tex             # new working edition; not a move/rename of legacy/rewrite-2026
 │   ├── latexmkrc
 │   ├── preamble/
 │   ├── frontmatter/
@@ -281,18 +345,26 @@ neural-representation-denoising/
 │   ├── bibliography/
 │   └── styles/
 ├── legacy/
-│   └── dissertation-2016/
+│   ├── dissertation-2016/
+│   │   ├── README.md
+│   │   ├── source/
+│   │   ├── figures/
+│   │   ├── pdf/
+│   │   └── MANIFEST.sha256
+│   └── rewrite-2026/         # immutable narrative baseline; already present
 │       ├── README.md
-│       ├── source/
-│       ├── figures/
-│       ├── pdf/
-│       └── MANIFEST.sha256
+│       ├── WRITING_PLAN.md
+│       ├── LITERATURE_MATRIX.csv
+│       ├── MANIFEST.sha256   # to add before Phase 2
+│       └── source/
+│           └── thesis.pdf    # primary baseline PDF
 ├── docs/
 │   ├── architecture.md
 │   ├── reproducibility.md
 │   ├── data-cards/
 │   ├── experiment-cards/
 │   ├── result-inventory.csv
+│   ├── rewrite-2026-inventory.csv
 │   ├── claim-evidence-matrix.md
 │   ├── symbol-table.md
 │   ├── literature-matrix.csv
@@ -308,7 +380,7 @@ neural-representation-denoising/
     └── pull_request_template.md
 ```
 
-Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in `notebooks/`, but every result used in the dissertation must be generated by importable, tested code and a committed configuration.
+Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in `notebooks/`, but every empirical result used in the dissertation must be generated by importable, tested code and a committed configuration. No scaffold or migration step may rename, delete, or write into the archived `legacy/dissertation-2016/` or `legacy/rewrite-2026/` trees.
 
 ---
 
@@ -317,6 +389,7 @@ Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in 
 ### 6.1 Every run must record
 
 - experiment name and semantic version;
+- claim ID, 2026-baseline section/artifact ID, and evidence status;
 - fully resolved Hydra configuration;
 - Git commit and dirty-worktree flag;
 - Python, PyTorch, CUDA, cuDNN, driver, operating system, CPU, GPU, and RAM information;
@@ -327,16 +400,18 @@ Keep notebooks out of the canonical pipeline. Exploratory notebooks may live in 
 - determinism settings and any nondeterministic operation warnings;
 - start/end timestamps and resource usage;
 - training history, final metrics, checkpoint hash, and failure status;
-- hashes of every generated table and figure.
+- hashes of every generated table and figure, plus the primary 2026-baseline PDF hash used by that revision.
 
 ### 6.2 Result lifecycle
 
-1. A run writes to `runs/<date>/<experiment>/<run-id>/`.
+1. A run writes to a newly created `runs/<date>/<experiment>/<run-id>/`; creation fails if that run ID already exists.
 2. Validation checks config completeness, metric schema, finite values, expected sample counts, and file hashes.
 3. Aggregation reads only validated runs.
 4. Confirmatory run IDs are copied into a committed manifest in `results/manifests/`.
 5. Figures and tables record the exact aggregate-manifest hash in metadata or a sidecar JSON.
-6. The dissertation build checks that every included generated artifact is present in the final manifest.
+6. Artifact generation writes to a new content-addressed or build-ID directory and never edits prior outputs.
+7. The dissertation build checks that every included generated artifact is present in the final manifest and writes a new PDF under `builds/dissertation/<build-id>/`.
+8. Release promotion records immutable run, artifact, and build IDs; it does not move or overwrite their contents.
 
 ### 6.3 Determinism modes
 
@@ -352,11 +427,13 @@ For the reference release, rerun one full seed twice on the same reference machi
 
 Each phase ends with a gate. Do not begin the next dependent phase until the gate is satisfied.
 
-### Phase 0 - Preserve the 2016 work and establish provenance
+### Phase 0 - Preserve the 2016 work and establish provenance - COMPLETE
 
 **Purpose:** Ensure modernization cannot destroy history and document what is and is not reproducible from the available materials.
 
-Tasks:
+**Completion review (2026-07-17):** Commit `7572d3650acdc46e7d55bbb49566fbdf952aa710`, tag `archive/dissertation-2016`, the validated 105-entry manifest, provenance README, two distinct PDFs, and 21-row result inventory satisfy the available-material acceptance criteria. The current worktree was clean at review time. Original experiment-code recovery remains an opportunistic provenance task if new external material is provided; it does not reopen or permit mutation of the completed archive.
+
+Completed task record:
 
 1. Record current Git branch, commit, remotes, tags, status, and all modified/untracked files.
 2. Determine why most current files appear modified. Compare content hashes and file-mode changes against `HEAD`; do not discard anything.
@@ -368,7 +445,7 @@ Tasks:
    - build environment if discoverable;
    - known unresolved reference (`chapter ??` in Appendix B);
    - statement that original experiment source code is not present in this workspace.
-7. Search all branches, Git history, ignored files, neighboring archive directories explicitly authorized for the project, old backups provided by the author, and publication supplements for the original Theano/Python/MATLAB code.
+7. Search all branches, Git history, ignored project files, and any explicitly authorized archives/backups/supplements made available during Phase 0 for the original Theano/Python/MATLAB code; record that later-provided locations can extend this search without changing the archive.
 8. If code is recovered, preserve it unchanged under `legacy/code-original/` with environment notes. Do not make the modern package depend on it.
 9. Create `docs/result-inventory.csv`, with one row for every historical figure, table, and reported numerical claim. Required columns:
    - chapter;
@@ -386,7 +463,7 @@ Tasks:
 
 **Outputs:** immutable legacy tree, manifests, provenance README, complete result inventory.
 
-**Gate P0:** A clean checkout of the archival tag builds or at least contains the historical PDF; every historical result has an inventory row; no preexisting user file has been lost.
+**Gate P0 - PASSED:** The archival tag contains both historical PDFs, the manifest validates, the inventory is present, and no preexisting user file is known to have been lost.
 
 ### Phase 1 - Freeze scope, claims, and decision records
 
@@ -394,28 +471,43 @@ Tasks:
 
 Tasks:
 
-1. Create decision records for:
+1. Freeze the entire `legacy/rewrite-2026/` tree without editing it:
+   - create `legacy/rewrite-2026/MANIFEST.sha256` covering the PDF, LaTeX, bibliography, build script, writing plan, literature matrix, and copied assets;
+   - record source commit `0c7617fcc28e6a3778fc44f5a7a59b3d4aa571e5`, PDF metadata, 58-page count, and primary PDF SHA-256;
+   - create archival tag `archive/rewrite-2026-baseline` after review; and
+   - verify that the new manifest and tag do not alter the already archived 2016 tree.
+2. Create `docs/rewrite-2026-inventory.csv` with one row for every empirical figure/table, source-authored table/schematic, principal claim, mathematical correction, and proposed future result in the 2026 PDF. Required fields are:
+   - stable baseline ID and PDF section/page;
+   - 2026 LaTeX label where available;
+   - 2016 ancestor or `new-in-2026`;
+   - evidence status and source edition;
+   - current support/limitation statement;
+   - target claim ID and final artifact ID;
+   - disposition: retain as historical context, faithfully reimplement, modernize, replace, or retire.
+3. Produce a baseline audit that extracts the title, chapter/section outline, figure/table list, citations, and visible numerical claims from the PDF. Use it as a regression oracle for migration; do not assume source compilation alone proves equivalence to the reviewed PDF.
+4. Create decision records for:
    - primary/secondary datasets and license implications;
    - Python/PyTorch/Hydra versions;
    - color representation and noise domain;
    - legacy-compatible versus corrected model equations;
    - confirmatory seeds and statistical tests;
-   - LaTeX engine/template;
+   - whether the new edition retains the 2026 Tectonic/XeTeX route or migrates to LuaLaTeX/`latexmk`, including a baseline visual-fidelity test;
    - repository/text licenses.
-2. Convert Section 4 hypotheses into `docs/claim-evidence-matrix.md` with columns for null hypothesis, intervention, controls, primary metric, secondary metrics, failure interpretation, and dissertation section.
-3. Mark analyses as **confirmatory** or **exploratory** before full runs.
-4. Define minimum scientific success independently of positive results:
+5. Convert Section 4 hypotheses and the bounded claims in 2026 PDF Sections 1.5, 3.9, 4.10, and 5.7 into `docs/claim-evidence-matrix.md`, with columns for null hypothesis, intervention, controls, primary metric, secondary metrics, failure interpretation, baseline text location, and target dissertation section.
+6. Mark analyses as **confirmatory** or **exploratory** before full runs.
+7. Define minimum scientific success independently of positive results:
    - all experiments reproducible;
    - comparisons fair and statistically reported;
    - revised claims match evidence even if original claims weaken.
-5. Define non-goals:
+8. Define non-goals:
    - no attempt to beat state-of-the-art color denoisers;
    - no fit to biological neural recordings in the first release;
    - no GUI;
    - no mandatory external experiment-tracking service;
-   - no rewriting of historical text in the archive.
+   - no rewriting of historical text in the archive; and
+   - no in-place editing of the 2026 rewrite.
 
-**Gate P1:** All decisions that alter data, equations, baselines, or claims have an accepted record; confirmatory metrics and splits are frozen in prose before full experiments.
+**Gate P1:** The 2026 tree has a validated manifest and archival tag; every 2026 PDF claim/figure/table has a disposition and lineage row; all decisions that alter data, equations, baselines, writing-engine migration, or claims have an accepted record; confirmatory metrics and splits are frozen in prose before full experiments.
 
 ### Phase 2 - Scaffold the modern repository and development environment
 
@@ -423,7 +515,7 @@ Tasks:
 
 Tasks:
 
-1. Create the target directory structure from Section 5.
+1. Create the target directory structure from Section 5 without renaming, deleting, or writing into either archived baseline under `legacy/`.
 2. Initialize the package with typed modules and console entry points:
    - `neural-repr-data`;
    - `neural-repr-train`;
@@ -437,21 +529,28 @@ Tasks:
 6. Add Ruff, mypy, pytest, coverage, codespell, and pre-commit configuration.
 7. Create CPU and CUDA containers pinned by digest. Record the supported reference GPU/CUDA stack.
 8. Implement a `system-info` command that writes the environment fields in Section 6.
-9. Add GitHub Actions jobs for:
+9. Create `dissertation/` as a new working tree derived from the frozen 2026 source:
+   - retain a machine-readable mapping from every copied/translated file to its 2026 source hash;
+   - reproduce the reviewed title, chapter order, labels, evidence boundary, and historical-result disclaimers before substantive edits;
+   - keep generated empirical inputs under `dissertation/generated/`, never under `legacy/rewrite-2026/source/images/`; and
+   - write PDFs only to new `builds/dissertation/<build-id>/` directories.
+10. Add GitHub Actions jobs for:
    - lockfile consistency;
    - lint/type/spelling checks;
    - CPU unit and integration tests;
    - numerical smoke tests;
    - LaTeX build;
+   - 2016 and 2026 baseline hash verification;
+   - baseline-to-working-edition lineage completeness;
    - citation/schema validation;
    - container builds on release or scheduled runs.
-10. Write a minimal README quick start and contributor setup.
+11. Write a minimal README quick start and contributor setup.
 
-**Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build a placeholder dissertation PDF.
+**Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels.
 
 ### Phase 3 - Formalize and test the mathematics before training
 
-**Purpose:** Correct ambiguous or inaccurate equations and ensure the implementation matches the revised notation.
+**Purpose:** Turn the 2026 rewrite's corrections and explicitly documented ambiguities into an executable mathematical specification, then ensure the implementation and revised notation agree.
 
 #### 3A. Group sparse coding specification
 
@@ -477,7 +576,7 @@ Tasks:
    - `proximal_group` or a clearly derived smooth-gradient method for the modern model.
 5. Numerically verify all analytic gradients against finite differences on tiny problems.
 6. Compare unrolled gradients against implicit/converged gradients on toy cases.
-7. Correct the Gabor model used for analysis: the Gaussian envelope needs a negative quadratic exponent and a documented factor convention.
+7. Adopt and verify the corrected Gabor model already displayed in the 2026 PDF: the Gaussian envelope needs a negative quadratic exponent and a documented factor convention.
 8. Add tests for invariances, degenerate groups, zero coefficients, normalization, convergence, and reconstruction consistency.
 
 #### 3B. Attractor-network specification
@@ -499,7 +598,7 @@ Tasks:
 
 3. Define write, hold, and move operations with consistent indexing and units.
 4. Specify whether “weight noise” is independently resampled each step, each trajectory, or fixed as a perturbation. These are different experiments.
-5. Correct the epilogue derivation:
+5. Encode and test the recurrent-dynamics corrections already made explicit in the 2026 baseline:
    - the first-order update uses `delta t`, not absolute `t`;
    - continuous-time amplification depends on the sign of an eigenvalue, not whether it is greater than one;
    - an antisymmetric generator produces norm-preserving motion only under the stated continuous-time assumptions.
@@ -544,9 +643,9 @@ Tasks:
 
 **Gate P4:** Re-running preprocessing yields identical manifests and arrays on the reference platform; inverse transforms reconstruct inputs within tolerance; no test image influences fitted preprocessing; license handling is documented.
 
-### Phase 5 - Reimplement and validate Chapter 2 on controlled data
+### Phase 5 - Reimplement and validate the sparse-coding study on controlled data
 
-**Purpose:** Establish correctness before expensive color experiments.
+**Purpose:** Establish correctness for the method reported in 2026 baseline Chapter 3 before expensive color experiments.
 
 Tasks:
 
@@ -660,7 +759,7 @@ For each model, noise condition, and five or more fixed seeds:
 - single-noise training versus noise-conditional training;
 - test-time solver iterations beyond the training unroll length.
 
-**Outputs replacing Chapter 2:**
+**Outputs replacing empirical content in 2026 baseline Chapter 3:**
 
 - iso-cost surfaces;
 - toy recovery visualization and table;
@@ -675,7 +774,7 @@ For each model, noise condition, and five or more fixed seeds:
 - wiring cost/stability versus dimension;
 - ablation and cross-dataset generalization tables.
 
-**Gate P6:** All confirmatory run IDs are frozen; no missing or failed seed is silently omitted; paired statistics are complete; the revised Chapter 2 claim language is determined from these results.
+**Gate P6:** All confirmatory run IDs are frozen; no missing or failed seed is silently omitted; paired statistics are complete; the final Chapter 3 claim language is determined from these results.
 
 ### Phase 7 - Reimplement the original one-dimensional attractor study
 
@@ -768,7 +867,7 @@ Tasks:
 
 ### Phase 9 - Extend the attractor study to multiple modules and two dimensions
 
-**Purpose:** Complete the most important future work identified by the 2016 dissertation.
+**Purpose:** Complete the most important future work identified in 2026 baseline Sections 4.9 and 5.6.5.
 
 #### 9A. Multiple modules in one dimension
 
@@ -837,8 +936,8 @@ Tasks:
 
 Tasks:
 
-1. Give every revised figure and table a stable artifact ID such as `ch2-fig-basis-atlas`.
-2. Map every historical result inventory row to a revised artifact or an explicit retirement reason.
+1. Give every revised figure and table a stable artifact ID such as `ch3-fig-basis-atlas`.
+2. Map every row in both `docs/result-inventory.csv` and `docs/rewrite-2026-inventory.csv` to a revised artifact or an explicit retention/retirement reason.
 3. Generate:
    - vector PDF for LaTeX;
    - SVG for GitHub/web viewing where practical;
@@ -848,7 +947,7 @@ Tasks:
 5. Avoid rasterizing vector plots and avoid Photoshop/Illustrator edits.
 6. For image panels, save crop IDs, coordinates, scaling, and clipping policy in config.
 7. Generate all table values first as CSV/Parquet, then render `.tex` from the same data.
-8. Generate a small LaTeX macro file for repeated headline values, for example `\ChTwoLearnedGroupDeltaPSNR`, so abstract/conclusion values cannot drift.
+8. Generate a small LaTeX macro file for repeated headline values, for example `\ChThreeLearnedGroupDeltaPSNR`, so abstract/conclusion values cannot drift.
 9. Add artifact tests:
    - expected dimensions/pages;
    - finite values;
@@ -856,18 +955,20 @@ Tasks:
    - font embedding;
    - captions reference existing labels;
    - generated files match frozen manifests.
-10. Render all dissertation pages to images and visually inspect every figure/table at final size.
+10. Write each artifact set to a new content-addressed/build-ID directory; fail rather than replace an existing file whose content differs.
+11. Render all dissertation pages to images and visually inspect every figure/table at final size.
 
-**Gate P11:** Every non-historical figure/table in the revised dissertation has a single command, a committed configuration, a validated input manifest, and no manual post-processing.
+**Gate P11:** Every empirical figure/quantitative table in the new dissertation edition has a single command, a committed configuration, a validated input manifest, and no manual post-processing; every source-authored schematic/conceptual table has declared provenance; all outputs are new artifacts and both baselines remain hash-identical.
 
-### Phase 12 - Update the literature and redesign the dissertation argument
+### Phase 12 - Revise the 2026 baseline from frozen evidence
 
-**Purpose:** Rewrite from evidence and current scholarship instead of sentence-editing the 2016 document in place.
+**Purpose:** Preserve the successful structure and evidence calibration of `legacy/rewrite-2026/source/thesis.pdf`, then update the separate `dissertation/` edition from frozen generated evidence and current scholarship. This is a controlled revision of the 2026 baseline, not a fresh redesign and never an in-place edit.
 
 #### 12A. Literature review
 
-1. Build `docs/literature-matrix.csv` with topic, citation, year, primary contribution, evidence type, relation to this work, and intended section.
-2. Search through the final cutoff date for:
+1. Seed `docs/literature-matrix.csv` from `legacy/rewrite-2026/LITERATURE_MATRIX.csv`, preserving a source row/hash and recording whether each baseline citation is retained, updated, or removed.
+2. Extend the matrix with topic, citation, year, primary contribution, evidence type, relation to this work, intended section, verification status, and source edition.
+3. Search from the 2026 rewrite's declared cutoff through the final cutoff date, while also checking for material omissions before that date, for:
    - denoising/score matching and manifold interpretation;
    - algorithm unrolling and differentiable optimization;
    - structured and group sparse coding;
@@ -876,43 +977,45 @@ Tasks:
    - continuous attractor networks;
    - grid-cell coding, modules, scale ratios, error correction, path integration, and neural-manifold work;
    - biological evidence that supports or challenges the proposed model.
-3. Prefer peer-reviewed papers and primary sources. Clearly label preprints.
-4. Verify every factual or historical statement against its cited source.
-5. Deduplicate and normalize bibliography metadata, including DOI/URL and consistent capitalization.
+4. Prefer peer-reviewed papers and primary sources. Clearly label preprints.
+5. Verify every factual or historical statement against its cited source.
+6. Deduplicate and normalize bibliography metadata, including DOI/URL and consistent capitalization.
 
-#### 12B. Proposed revised structure
+#### 12B. Baseline structure to retain by default
+
+The reviewed 2026 PDF already implements the desired five-chapter architecture. Preserve this order unless frozen evidence makes a structural change necessary; record any such change in the claim/lineage matrix.
 
 1. **Front matter**
-   - revised title selected after results;
+   - retain the 2026 title as the working title; reconsider it only after results;
    - abstract written last;
-   - reproducibility statement and repository/DOI;
+   - update the existing scope/reproducibility statement with repository version, DOI, evidence classes, and exact reproduction boundary;
    - acknowledgments and historical note.
-2. **Chapter 1: Introduction**
+2. **Chapter 1: Questions, thesis, and contributions**
    - precise problem statement;
    - levels of explanation and scope;
    - representation manifolds, corruption, restoration, and transport;
    - research questions and contributions;
    - roadmap.
-3. **Chapter 2: Common mathematical and computational framework**
+3. **Chapter 2: Primer and common mathematical/computational framework**
    - denoising as conditional estimation;
    - relation to score/manifold ideas with carefully bounded claims;
    - unrolled inference and BPTT;
    - reproducibility and experimental design;
    - notation shared by later chapters.
-4. **Chapter 3: Learning group structure in color sparse coding**
+4. **Chapter 3: Learning group structure in sparse image codes**
    - model and corrected inference;
    - synthetic validation;
-   - public color data and preprocessing;
+   - replace the historical grayscale empirical section with public color-data representation and RGB-denoising tracks;
    - baselines and statistical protocol;
    - results, ablations, topology, limitations.
-5. **Chapter 4: Grid codes in noise-robust attractor networks**
+5. **Chapter 4: Noise-robust location codes in recurrent networks**
    - biological background separated from model assumptions;
    - recurrent dynamics and training;
    - fair 1D comparison;
    - basin/error-correction analyses;
    - multi-module and 2D extensions;
    - biological interpretation and limits.
-6. **Chapter 5: Synthesis and discussion**
+6. **Chapter 5: Synthesis, limitations, and the resulting research program**
    - what denoising learns in feedforward/inference versus recurrent settings;
    - stabilization versus transport;
    - commonalities and differences between the studies;
@@ -928,16 +1031,18 @@ Tasks:
 
 #### 12C. Writing workflow for every section
 
-1. Write a one-sentence purpose and one-paragraph claim outline.
-2. Link every proposed claim to the claim-evidence matrix.
-3. Draft paragraphs as claim -> evidence/derivation -> interpretation -> limitation.
-4. Define terms before using them and use one term per concept.
-5. Distinguish assumptions, definitions, hypotheses, results, and interpretations typographically and verbally.
-6. Put model dimensions, noise definitions, and train/test protocol near the first use, not only in an appendix.
-7. Explain equations in prose without restating every symbol mechanically.
-8. Remove broad AI claims that are not needed for the thesis argument.
-9. Replace vague words such as “better,” “efficient,” and “robust” with a metric and comparison regime.
-10. Do a separate pass for:
+1. Start from the corresponding 2026 PDF section and its inventory row; do not start from the 2016 prose.
+2. Preserve the baseline section's one-sentence purpose, claim outline, and calibrated language unless a cited result, derivation, or source requires a change.
+3. Link every retained, changed, or new claim to the claim-evidence matrix and record the reason for the textual change.
+4. Maintain the baseline's claim -> evidence/derivation -> interpretation -> limitation pattern.
+5. Define terms before using them and use one term per concept.
+6. Distinguish assumptions, definitions, hypotheses, results, and interpretations typographically and verbally.
+7. Put model dimensions, noise definitions, and train/test protocol near the first use, not only in an appendix.
+8. Explain equations in prose without restating every symbol mechanically.
+9. Do not reintroduce broad AI claims, energy-landscape claims for nonsymmetric dynamics, or claims that the simulations explain why biological grid cells exist.
+10. Replace vague words such as “better,” “efficient,” and “robust” with a metric and comparison regime.
+11. Replace every transcribed historical empirical value and copied result panel in the main evidentiary narrative with generated content. Historical comparisons may remain only with an explicit label and lineage reference.
+12. Do a separate pass for:
     - logical continuity;
     - mathematical correctness;
     - statistical reporting;
@@ -945,23 +1050,24 @@ Tasks:
     - grammar and fluency;
     - concision;
     - consistent authorial voice.
-11. Have a domain expert review Chapter 3 biological claims and a numerical-optimization expert review Chapter 2 inference.
-12. Revise the abstract and conclusion only after all result chapters are frozen.
+13. Have a domain expert review Chapter 4 biological claims and a numerical-optimization expert review the Chapter 3 inference specification.
+14. Revise the abstract, Chapter 5 conclusion, and title only after all result chapters are frozen.
 
 #### 12D. LaTeX architecture
 
-1. Use a self-contained modern class or a documented revised-edition template; keep the historical Berkeley class only in the archive.
-2. Use LuaLaTeX with an open TeX Live font such as Libertinus and matching math fonts.
+1. Work only in `dissertation/`; keep both archived editions under `legacy/` read-only.
+2. Use the engine/template selected in the Phase 1 decision record. If migrating from the 2026 Tectonic/XeTeX build to LuaLaTeX/`latexmk`, document font/layout changes and pass the baseline migration checks before scientific edits.
 3. Centralize packages, typography, theorem styles, units, colors, and custom commands.
 4. Define vector/matrix/random-variable notation macros and enforce them throughout.
 5. Use `cleveref`/`hyperref` consistently and eliminate hard-coded section numbers.
 6. Keep one label namespace: `chap:`, `sec:`, `eq:`, `fig:`, `tab:`, `app:`.
 7. Generate lists of symbols/acronyms if they improve navigation.
-8. Build with `latexmk`; treat undefined references, missing citations, overfull boxes beyond a threshold, and duplicate labels as CI failures.
+8. Use the selected reproducible build driver; treat undefined references, missing citations, overfull boxes beyond a threshold, and duplicate labels as CI failures.
 9. Use `\input{}` for generated tables/macros and stable paths for figures.
-10. Include repository URL, version, commit, and archive DOI in the final PDF.
+10. Write every build to `builds/dissertation/<build-id>/` and include the baseline PDF hash plus included-artifact manifest in the build manifest.
+11. Include repository URL, version, commit, and archive DOI in the final PDF.
 
-**Gate P12:** Every chapter has passed scientific, logic, and prose review; every claim maps to evidence; citations and cross-references resolve; the PDF builds without warnings designated as fatal.
+**Gate P12:** Every chapter has passed scientific, logic, and prose review; every claim maps to evidence and to its 2026-baseline disposition; citations and cross-references resolve; all empirical numbers/artifacts are generated; the PDF builds without warnings designated as fatal; the original 2016 and 2026 trees still match their manifests.
 
 ### Phase 13 - End-to-end reproduction and independent verification
 
@@ -973,10 +1079,10 @@ Tasks:
 2. Clone the repository at the release candidate tag.
 3. Run `make bootstrap` and accept/download data through the documented flow.
 4. Run `make reproduce-quick`; compare to committed tolerance-based smoke references.
-5. Run full Chapter 2 and Chapter 3 pipelines from frozen configurations.
+5. Run `make reproduce-sparse` and `make reproduce-attractor` from frozen configurations.
 6. Aggregate results and regenerate every figure/table.
-7. Build the PDF.
-8. Verify artifact hashes against the candidate release manifest.
+7. Build the PDF to a new versioned build directory.
+8. Verify artifact hashes against the candidate release manifest and revalidate both baseline manifests.
 9. Repeat one full seed on the same reference environment.
 10. Run the quick profile on macOS and Linux CPU; run the full profile on at least the reference CUDA environment.
 11. Ask an independent reader who did not implement the code to follow the README and record every ambiguity.
@@ -1009,9 +1115,9 @@ Tasks:
    - small result tables/figures;
    - checksums;
    - links to large model/result archive;
-   - release notes describing differences from 2016.
+   - release notes describing differences from both the 2016 dissertation and the frozen 2026 rewrite.
 7. Archive the release with Zenodo or an equivalent service and obtain a DOI.
-8. Add DOI badge and release DOI to the PDF and `CITATION.cff`; rebuild once without changing scientific content.
+8. Add DOI badge and release DOI to the PDF and `CITATION.cff`; create a new build ID without changing scientific content.
 9. Tag `v1.0.0` and protect the release tag.
 10. Open issues for deferred work rather than expanding the release at the last moment.
 
@@ -1019,30 +1125,31 @@ Tasks:
 
 ---
 
-## 8. Historical-to-modern result map
+## 8. 2026-baseline-to-modern result map
 
-This table is the minimum replacement set. The result inventory created in Phase 0 must be more granular.
+This table is the minimum replacement set expressed in the numbering of the primary 2026 PDF. The Phase 0 inventory preserves the 2016 labels; the Phase 1 2026 inventory must provide the granular, machine-readable bridge across all three editions.
 
-| Historical result | Modern replacement | Canonical generator to create |
-|---|---|---|
-| Fig. 2.1 group iso-cost surfaces | Corrected vector surfaces plus parameter definitions | `make figure ID=ch3-iso-cost` |
-| Fig. 2.2 toy data/recovered contour | Multi-seed toy recovery plus quantitative score | `make figure ID=ch3-toy-recovery` |
-| Table 2.1 denoising SNR | Paired multi-seed color SNR plus RGB PSNR/SSIM tables | `make table ID=ch3-denoising` |
-| Fig. 2.3 denoising examples | Fixed DIV2K/BSDS color crops with reproducible corruption | `make figure ID=ch3-color-denoising-examples` |
-| Fig. 2.4 basis functions | Color/opponent basis atlas for all controlled models | `make figure ID=ch3-color-bases` |
-| Fig. 2.5 group examples | Representative groups chosen by fixed rule, not hand selection | `make figure ID=ch3-group-examples` |
-| Fig. 2.6 all-group visualization | Full weighted group map plus color-feature annotations | `make figure ID=ch3-group-map` |
-| Table 2.2 group statistics | Multi-seed weighted/threshold sensitivity statistics | `make table ID=ch3-group-statistics` |
-| Fig. 2.7 minimum-wiring map | Stable 2D embeddings with null comparison | `make figure ID=ch3-wiring-embedding` |
-| Fig. 2.8 wiring cost vs dimension | Repeated-start/null dimensionality analysis | `make figure ID=ch3-wiring-dimension` |
-| Fig. 3.1 learned weights | Multi-seed place/place-grid/multi-module weight panels | `make figure ID=ch4-weights` |
-| Figs. 3.2-3.4 write/hold/move | Reproducible activity traces with decoded location | `make figure ID=ch4-operations` |
-| Fig. 3.5 random-noise robustness | Budget-matched error/drift vs horizon with CIs | `make figure ID=ch4-random-noise` |
-| Fig. 3.6 constant perturbation | Recovery/absolute error vs fixed perturbation with CIs | `make figure ID=ch4-fixed-perturbation` |
-| Fig. 3.7 staircase/fixed points | Fixed-point density, basin radii, and decoder map | `make figure ID=ch4-basin-structure` |
-| Proposed 2D generalization | Implemented 2D multi-module path integration | `make figure ID=ch4-2d-path-integration` |
+| 2026 baseline result | 2016 ancestor | Modern replacement | Canonical generator to create |
+|---|---|---|---|
+| Fig. 3.1 group iso-cost surfaces | Fig. 2.1 | Corrected vector surfaces plus parameter definitions | `make figure ID=ch3-iso-cost` |
+| Fig. 3.2 toy data/recovered contour | Fig. 2.2 | Multi-seed toy recovery plus quantitative score | `make figure ID=ch3-toy-recovery` |
+| Table 3.1 patch denoising SNR | Table 2.1 | Paired multi-seed color SNR plus RGB PSNR/SSIM tables | `make table ID=ch3-denoising` |
+| Fig. 3.3 denoising examples | Fig. 2.3 | Fixed DIV2K/BSDS color crops with reproducible corruption | `make figure ID=ch3-color-denoising-examples` |
+| Fig. 3.4 basis functions | Fig. 2.4 | Color/opponent basis atlas for all controlled models | `make figure ID=ch3-color-bases` |
+| Fig. 3.5 group examples | Fig. 2.5 | Representative groups chosen by fixed rule, not hand selection | `make figure ID=ch3-group-examples` |
+| Fig. 3.6 all-group visualization | Fig. 2.6 | Full weighted group map plus color-feature annotations | `make figure ID=ch3-group-map` |
+| Table 3.2 group statistics | Table 2.2 | Multi-seed weighted/threshold sensitivity statistics | `make table ID=ch3-group-statistics` |
+| Fig. 3.7 minimum-wiring map | Fig. 2.7 | Stable 2D embeddings with null comparison | `make figure ID=ch3-wiring-embedding` |
+| Fig. 3.8 wiring cost vs dimension | Fig. 2.8 | Repeated-start/null dimensionality analysis | `make figure ID=ch3-wiring-dimension` |
+| Fig. 4.1 grid firing-field schematic | Chapter 1 schematic | New source-authored or code-generated schematic with explicit biological citations | `make figure ID=ch4-grid-schematic` |
+| Fig. 4.2 learned weights | Fig. 3.1 | Multi-seed place/place-grid/multi-module weight panels | `make figure ID=ch4-weights` |
+| Figs. 4.3-4.5 write/hold/move | Figs. 3.2-3.4 | Reproducible activity traces with decoded location | `make figure ID=ch4-operations` |
+| Fig. 4.6 random-noise robustness | Fig. 3.5 | Budget-matched error/drift vs horizon with CIs | `make figure ID=ch4-random-noise` |
+| Fig. 4.7 fixed perturbation | Fig. 3.6 | Recovery/absolute error vs fixed perturbation with CIs | `make figure ID=ch4-fixed-perturbation` |
+| Fig. 4.8 staircase/fixed points | Fig. 3.7 | Fixed-point density, basin radii, and decoder map | `make figure ID=ch4-basin-structure` |
+| Section 4.9 proposed multi-module/2D generalization | Proposed future work | Implemented multi-module and 2D path integration | `make figure ID=ch4-2d-path-integration` |
 
-Final IDs may change when chapters are renumbered, but the mapping must remain machine-readable.
+Stable IDs should remain semantic even if chapter numbers later change. Any display-number change must update the machine-readable inventory, not the artifact identity.
 
 ---
 
@@ -1139,21 +1246,24 @@ Every full run must log wall time, peak CPU/GPU memory, energy estimate if avail
 | Test-set leakage through configuration selection | Inflated claims | Separate immutable manifests and make selection code unable to read test metrics before freeze |
 | Full results vary by hardware | Reproduction disputes | Reference container/hardware, deterministic mode, repeated seed, tolerance and statistical contracts |
 | Revised writing outruns results | Unsupported polished narrative | Claim-evidence matrix; write results before abstract/conclusion; generated numerical macros |
+| The 2026 baseline is mistaken for a reproduction | Historical values gain unjustified authority | Keep it under `legacy/`; label copied values historical; require three-edition lineage for every empirical artifact |
+| A rerun overwrites a prior artifact | Provenance and negative results are lost | New run/build IDs, collision failure, immutable manifests, and append-only release promotion |
 | Repository becomes overengineered | Harder reproduction | Prefer local files and Make targets; optional external services; architecture review at every phase |
 
 ---
 
 ## 12. Milestones and release sequence
 
-1. **M0 - Archive preserved:** Phase 0, tagged archive.
-2. **M1 - Reproducible skeleton (`v0.1.0`):** Phases 1-4; CI, math specs, data pipeline.
-3. **M2 - Color sparse coding (`v0.2.0`):** Phases 5-6 and relevant statistics/artifacts.
-4. **M3 - Attractor/grid code (`v0.3.0`):** Phases 7-9 and relevant statistics/artifacts.
-5. **M4 - Complete scientific results (`v0.9.0`):** Phases 10-11; all frozen manifests and artifacts.
-6. **M5 - Revised dissertation release candidate (`v1.0.0-rc1`):** Phase 12.
-7. **M6 - Independently reproduced public release (`v1.0.0`):** Phases 13-14.
+1. **M0 - 2016 archive preserved - complete:** Phase 0, tag `archive/dissertation-2016`.
+2. **M0.5 - 2026 baseline frozen and scope locked:** Phase 1; relocated baseline manifest/tag, three-edition inventory, claim matrix, and decision records.
+3. **M1 - Reproducible skeleton (`v0.1.0`):** Phases 2-4; separate working dissertation, CI, math specs, and data pipeline.
+4. **M2 - Color sparse coding (`v0.2.0`):** Phases 5-6 and relevant statistics/artifacts.
+5. **M3 - Attractor/grid code (`v0.3.0`):** Phases 7-9 and relevant statistics/artifacts.
+6. **M4 - Complete scientific results (`v0.9.0`):** Phases 10-11; all frozen manifests and artifacts.
+7. **M5 - New dissertation-edition release candidate (`v1.0.0-rc1`):** Phase 12.
+8. **M6 - Independently reproduced public release (`v1.0.0`):** Phases 13-14.
 
-Each milestone must have release notes stating which results are historical, faithfully reimplemented, or modernized.
+Each milestone must have release notes stating which results are historical, faithfully reimplemented, or modernized, and which 2026-baseline claims/artifacts changed or were retired.
 
 ---
 
@@ -1170,11 +1280,11 @@ The following is the experience the final repository must support. It is also th
 7. Run `make data-check`; confirm all hashes and split manifests.
 8. Run `make reproduce-quick`; confirm smoke metrics and a small PDF build.
 9. Select the documented full compute profile and device.
-10. Run `make reproduce-ch2`.
-11. Run `make reproduce-ch3`.
+10. Run `make reproduce-sparse`.
+11. Run `make reproduce-attractor`.
 12. Run `make reproduce-all` to validate, aggregate, and generate final artifacts.
-13. Run `make dissertation`.
-14. Run `make verify-release`.
+13. Run `make dissertation`; record the new build ID and confirm it did not write below `legacy/`.
+14. Run `make verify-release`; this must also validate the 2016 and 2026 baseline manifests.
 15. Compare the produced release manifest and PDF hash with the published reference or use documented numerical tolerances where a cross-platform rebuild cannot be byte-identical.
 
 There must be no step that says “open this figure and adjust it,” “copy this number into TeX,” “download data from an unofficial mirror,” or “ask the author for a missing config.”
@@ -1183,11 +1293,14 @@ There must be no step that says “open this figure and adjust it,” “copy th
 
 ## 14. Final acceptance checklist
 
-### Preservation
+### Baselines and preservation
 
-- [ ] Historical source/PDF/figures are immutable and checksummed.
-- [ ] Original-code absence or recovery is documented accurately.
-- [ ] Historical and revised results cannot be confused.
+- [x] The 2016 source/PDF/figures are preserved and checksummed.
+- [x] Original-code absence is documented accurately for the available repository material.
+- [x] The 2026 rewrite has been relocated intact to `legacy/rewrite-2026/`.
+- [ ] The relocated 2026 tree has a validated manifest and archival tag.
+- [ ] Every 2026 claim/artifact maps to its 2016 ancestor and modern disposition.
+- [ ] Historical, 2026-baseline, faithfully reimplemented, and modernized results cannot be confused.
 
 ### Code
 
@@ -1203,7 +1316,7 @@ There must be no step that says “open this figure and adjust it,” “copy th
 - [ ] Dataset and split hashes are frozen.
 - [ ] Preprocessing fits training data only and is reversible where claimed.
 
-### Chapter 2
+### Chapter 3 - sparse-coding study
 
 - [ ] Toy group recovery is quantitatively validated.
 - [ ] Public RGB data replaces the grayscale natural-image experiment.
@@ -1212,7 +1325,7 @@ There must be no step that says “open this figure and adjust it,” “copy th
 - [ ] In-domain and external denoising results include uncertainty and failure cases.
 - [ ] Topographic/wiring claims use null and stability analyses.
 
-### Chapter 3
+### Chapter 4 - attractor-network study
 
 - [ ] Original 1D operations are reproduced or discrepancies explained.
 - [ ] Place/grid comparisons match neuron, activity, weight, training, and decoder budgets.
@@ -1224,12 +1337,14 @@ There must be no step that says “open this figure and adjust it,” “copy th
 ### Dissertation
 
 - [ ] Mathematics and implementation use the same notation and equations.
+- [ ] The new edition is demonstrably derived from the 2026 PDF baseline, with every material claim change recorded.
 - [ ] Literature is current through the declared cutoff date.
 - [ ] Every claim maps to evidence.
-- [ ] Numerical values, tables, and figures are generated.
+- [ ] Empirical numerical values, quantitative tables, and result figures are generated.
 - [ ] Abstract and conclusion match the final results.
 - [ ] Cross-references/citations resolve and the compiled PDF passes visual QA.
 - [ ] Repository version, commit, and DOI appear in the PDF.
+- [ ] No dissertation build or generated result has overwritten a prior artifact or either archived edition.
 
 ### Release
 
@@ -1258,4 +1373,4 @@ These links guide implementation; exact software versions, dataset hashes, and t
 
 ## 16. First action when execution begins
 
-Begin with **Phase 0 only**. Do not scaffold, move historical files, download data, or edit dissertation prose until the current dirty worktree has been explained, preserved, and checksummed. After Gate P0, execute phases in order and stop at every gate if the documented acceptance criteria are not met.
+Phase 0 has passed. Begin with **Phase 1 only**: validate the intact relocation to `legacy/rewrite-2026/`, create its manifest and archival tag, inventory the primary 2026 PDF, and freeze claim/decision records. Do not scaffold the modern package, download data, or edit dissertation prose until Gate P1 passes. Thereafter execute phases in order and stop at every gate whose acceptance criteria are not met.
