@@ -4,7 +4,7 @@
 
 **Plan date:** 2026-07-17
 
-**Plan status:** Phases 0 and 1 complete (Gate P1 passed and independently verified on 2026-07-18); the 2026 rewrite is frozen (tag `archive/rewrite-2026-baseline`) and serves as the narrative baseline; Phase 2 (scaffold the modern repository) is next; modern experiment/code implementation has not begun
+**Plan status:** Phases 0, 1, and 2 complete (Gate P2 passed and independently verified on 2026-07-18); the modern package, locked environment (`uv.lock`), public reference containers, the LuaLaTeX `dissertation/` working edition, and CI with layered leak prevention are scaffolded and green on a clean checkout; the 2026 rewrite remains frozen (tag `archive/rewrite-2026-baseline`); Phase 3 (formalize and test the mathematics before training) is next; no scientific/experiment code or reproduced results exist yet
 
 **Primary narrative baseline:** `legacy/rewrite-2026/source/thesis.pdf` (content from commit `0c7617fcc28e6a3778fc44f5a7a59b3d4aa571e5`, subsequently relocated intact under `legacy/`), SHA-256 `c89423fa6470997760c274295444711532cb67e7b7eef824861e8c6eb16fed8a`
 
@@ -58,8 +58,9 @@ No pipeline command may write under `legacy/`. Experiment runs, aggregate result
 | Phase 0: preserve and inventory 2016 work | Complete | Do not repeat or mutate it; verify hashes in release checks |
 | 2026 narrative rewrite | Complete as a baseline only | Preserve it unchanged and use its PDF as the starting edition |
 | Phase 1 | Complete (Gate P1 passed 2026-07-18, independently verified) | 2026 tree frozen (tag `archive/rewrite-2026-baseline`); inventory, baseline audit, claim-evidence matrix, and decision records committed under `docs/` |
-| Phase 2 | Next | Scaffold the modern repository and development environment; do not download data or edit dissertation prose before Gate P2 |
-| Phases 3-11 | Pending | No modern package, data pipeline, reproduced runs, or generated empirical artifacts exist yet |
+| Phase 2 | Complete (Gate P2 passed 2026-07-18, independently verified) | Package skeleton, committed `uv.lock`, six Typer CLIs, sanitized two-layer provenance, public digest-pinned CPU/CUDA containers, LuaLaTeX `dissertation/` edition, and CI with layered leak prevention — all green on a clean checkout |
+| Phase 3 | Next | Formalize and test the mathematics (group sparse coding + attractor) before any training; finite-difference gradient checks and notation/spec agreement |
+| Phases 4-11 | Pending | No data pipeline, reproduced runs, or generated empirical artifacts exist yet |
 | Phase 12 | Partially anticipated by the rewrite | Retain the architecture and calibrated prose, but revise it only after generated evidence is frozen |
 | Phases 13-14 | Pending | End-to-end verification and publication have not begun |
 
@@ -569,7 +570,11 @@ Tasks:
    - container builds on release or scheduled runs, using only publicly pullable base images.
 11. Write a minimal README quick start and contributor setup.
 
-**Gate P2:** A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels. Additionally, to enforce the §2.4 public-reference requirements:
+**Gate P2 - PASSED (2026-07-18, independently verified):** Verified from a fresh clone — `uv sync --locked` (lockfile unchanged), package import, 39 passing tests, all six CLI `--help` commands, and the LuaLaTeX `dissertation/` edition building to a non-overwriting `builds/dissertation/<build-id>/` directory with no undefined references/citations (57 vs 58 pages, a documented benign font/bibliography reflow); both `legacy/` baseline manifests validate; migration preserves the title, five chapters, appendices, and all 16 figure + 6 table labels against `docs/baseline-audit-2026.md`. Public digest-pinned CPU/CUDA Dockerfiles build without private credentials (CUDA build + image checks run on the amd64 CI runner); `neural-repr-verify check-image` runs the import, numerical-smoke, provenance-schema, and synthetic-canary leak-scan checks; a scheduled workflow verifies base pullability; no infrastructure-identifying value appears in any tracked file. Deferred to their later phases (not P2 blockers): `LICENSE`/`CITATION.cff`/`Makefile` and the exact code-license string.
+
+The original criteria were:
+
+A fresh Linux runner can install with `uv sync --locked`, import the package, run tests, run a CLI help command, and build the new working dissertation edition to a non-overwriting build directory; baseline hash checks pass; an automated text/structure check and representative rendered-page review show that migration did not silently drop the 2026 baseline argument or evidence labels. Additionally, to enforce the §2.4 public-reference requirements:
 
 - the CPU and CUDA Dockerfiles use digest-pinned, publicly pullable base images and build without private credentials (the exact public CUDA base is selected and digest-pinned during this phase, once PyTorch/CUDA compatibility and memory needs are known — not before);
 - the public CUDA image passes import, numerical-smoke, provenance-schema, and synthetic-canary leak-scan tests;
@@ -1404,6 +1409,6 @@ These links guide implementation; exact software versions, dataset hashes, and t
 
 ## 16. First action when execution begins
 
-Phases 0 and 1 have passed (Gate P1 satisfied and independently verified on 2026-07-18). The completed Phase 1 artifacts — the frozen `legacy/rewrite-2026/` tree and tag `archive/rewrite-2026-baseline`, `docs/rewrite-2026-inventory.csv`, `docs/baseline-audit-2026.md`, `docs/claim-evidence-matrix.md`, and `docs/decisions/` — are immutable inputs to the remaining work; do not regenerate or mutate them.
+Phases 0, 1, and 2 have passed (Gates P1 and P2 satisfied and independently verified on 2026-07-18). The completed artifacts — the frozen `legacy/rewrite-2026/` tree and tag `archive/rewrite-2026-baseline`; `docs/rewrite-2026-inventory.csv`, `docs/baseline-audit-2026.md`, `docs/claim-evidence-matrix.md`, `docs/decisions/`, `docs/tolerances.md`; the `src/neural_repr/` package, committed `uv.lock`, `containers/`, the `dissertation/` working edition, and CI — are inputs to the remaining work. Do not mutate the frozen baselines.
 
-Begin with **Phase 2**: scaffold the modern repository and development environment (package skeleton, `pyproject.toml`/`.python-version`/`uv.lock`, quality tooling, publicly pullable CPU/CUDA containers, the `dissertation/` working tree derived from the frozen 2026 source, CI including layered leak prevention, and a minimal README). Do not download datasets or edit dissertation prose beyond reproducing the frozen 2026 structure until Gate P2 passes. Thereafter execute phases in order and stop at every gate whose acceptance criteria are not met.
+Begin with **Phase 3**: turn the 2026 rewrite's corrections and documented ambiguities into an executable mathematical specification for both studies (group sparse coding and the attractor model), with finite-difference gradient checks and agreement among the math spec, code docstrings, LaTeX notation, and tests — before any training. Do not download datasets or begin expensive experiments until Gate P3 passes. Thereafter execute phases in order and stop at every gate whose acceptance criteria are not met.
