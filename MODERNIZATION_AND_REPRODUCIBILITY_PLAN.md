@@ -4,7 +4,7 @@
 
 **Plan date:** 2026-07-17
 
-**Plan status:** Phase 0 complete; the 2026 rewrite has been reviewed and is now the narrative baseline; Phase 1 is next; modern experiment/code implementation has not begun
+**Plan status:** Phases 0 and 1 complete (Gate P1 passed and independently verified on 2026-07-18); the 2026 rewrite is frozen (tag `archive/rewrite-2026-baseline`) and serves as the narrative baseline; Phase 2 (scaffold the modern repository) is next; modern experiment/code implementation has not begun
 
 **Primary narrative baseline:** `legacy/rewrite-2026/source/thesis.pdf` (content from commit `0c7617fcc28e6a3778fc44f5a7a59b3d4aa571e5`, subsequently relocated intact under `legacy/`), SHA-256 `c89423fa6470997760c274295444711532cb67e7b7eef824861e8c6eb16fed8a`
 
@@ -57,8 +57,9 @@ No pipeline command may write under `legacy/`. Experiment runs, aggregate result
 |---|---|---|
 | Phase 0: preserve and inventory 2016 work | Complete | Do not repeat or mutate it; verify hashes in release checks |
 | 2026 narrative rewrite | Complete as a baseline only | Preserve it unchanged and use its PDF as the starting edition |
-| Phase 1 | Next | Freeze decisions, claims, and a 2026-baseline inventory before implementation |
-| Phases 2-11 | Pending | No modern package, data pipeline, reproduced runs, or generated empirical artifacts exist yet |
+| Phase 1 | Complete (Gate P1 passed 2026-07-18, independently verified) | 2026 tree frozen (tag `archive/rewrite-2026-baseline`); inventory, baseline audit, claim-evidence matrix, and decision records committed under `docs/` |
+| Phase 2 | Next | Scaffold the modern repository and development environment; do not download data or edit dissertation prose before Gate P2 |
+| Phases 3-11 | Pending | No modern package, data pipeline, reproduced runs, or generated empirical artifacts exist yet |
 | Phase 12 | Partially anticipated by the rewrite | Retain the architecture and calibrated prose, but revise it only after generated evidence is frozen |
 | Phases 13-14 | Pending | End-to-end verification and publication have not begun |
 
@@ -507,7 +508,7 @@ Tasks:
    - no rewriting of historical text in the archive; and
    - no in-place editing of the 2026 rewrite.
 
-**Gate P1:** The 2026 tree has a validated manifest and archival tag; every 2026 PDF claim/figure/table has a disposition and lineage row; all decisions that alter data, equations, baselines, writing-engine migration, or claims have an accepted record; confirmatory metrics and splits are frozen in prose before full experiments.
+**Gate P1 - PASSED (2026-07-18, independently verified):** The 2026 tree has a validated manifest (`legacy/rewrite-2026/MANIFEST.sha256`, 31 files) and archival tag (`archive/rewrite-2026-baseline`); every 2026 PDF claim/figure/table has a disposition and lineage row (`docs/rewrite-2026-inventory.csv`, 40 rows; regression oracle in `docs/baseline-audit-2026.md`); all decisions that alter data, equations, baselines, writing-engine migration, or claims have a record (`docs/decisions/0001-0008`, with only the code-license string left provisional per §3.5/Phase 14); confirmatory metrics and splits are frozen in prose before full experiments (`docs/claim-evidence-matrix.md`). Both legacy baselines remain hash-identical.
 
 ### Phase 2 - Scaffold the modern repository and development environment
 
@@ -1298,9 +1299,9 @@ There must be no step that says “open this figure and adjust it,” “copy th
 - [x] The 2016 source/PDF/figures are preserved and checksummed.
 - [x] Original-code absence is documented accurately for the available repository material.
 - [x] The 2026 rewrite has been relocated intact to `legacy/rewrite-2026/`.
-- [ ] The relocated 2026 tree has a validated manifest and archival tag.
-- [ ] Every 2026 claim/artifact maps to its 2016 ancestor and modern disposition.
-- [ ] Historical, 2026-baseline, faithfully reimplemented, and modernized results cannot be confused.
+- [x] The relocated 2026 tree has a validated manifest and archival tag.
+- [x] Every 2026 claim/artifact maps to its 2016 ancestor and modern disposition.
+- [ ] Historical, 2026-baseline, faithfully reimplemented, and modernized results cannot be confused. (Tracking mechanism established in Phase 1 via `source_edition`/`evidence_status`; full enforcement is a release-time property across later phases.)
 
 ### Code
 
