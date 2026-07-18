@@ -1,0 +1,15 @@
+% Notation macros and evidence-note environments — preserved from the 2026
+% baseline (thesis.tex). Chapters depend on these exact definitions.
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\mat}[1]{\bm{#1}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1\right\rvert}
+\newcommand{\given}{\,\middle|\,}
+\newenvironment{evidencenote}
+  {\begin{quote}\small\noindent\color{LinkBlue}\textbf{Evidence scope.}\color{black}~}
+  {\end{quote}}
+\newenvironment{limitationnote}
+  {\begin{quote}\small\noindent\textbf{Interpretive limit.}~}
+  {\end{quote}}

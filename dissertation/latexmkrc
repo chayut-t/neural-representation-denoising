@@ -1,0 +1,17 @@
+# latexmk configuration for the working dissertation edition.
+# Engine: LuaLaTeX + biber (decision 0006). Invoke from dissertation/ as e.g.:
+#   latexmk -r latexmkrc main.tex
+# The reproducible build target writes into builds/dissertation/<build-id>/;
+# a bare `latexmk` here builds in place for local iteration.
+
+$pdf_mode = 4;          # 4 = LuaLaTeX
+$lualatex = 'lualatex --interaction=nonstopmode --halt-on-error --file-line-error %O %S';
+$bibtex_use = 2;        # run biber and clean its artifacts
+$biber = 'biber %O %S';
+
+# Treat these as build products for `latexmk -c`.
+$clean_ext = 'bbl run.xml bcf synctex.gz nav snm';
+
+# Warn loudly; CI escalates undefined refs / missing citations / dup labels to
+# failures via a log check (see .github/workflows).
+$warnings_as_errors = 0;

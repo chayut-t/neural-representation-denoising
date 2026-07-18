@@ -17,6 +17,22 @@ runs/
 builds/dissertation/*/
 !builds/dissertation/.gitkeep
 
+# In-place LaTeX build products under dissertation/ (source is committed, PDFs aren't).
+dissertation/main.pdf
+dissertation/*.aux
+dissertation/*.bbl
+dissertation/*.bcf
+dissertation/*.blg
+dissertation/*.fdb_latexmk
+dissertation/*.fls
+dissertation/*.log
+dissertation/*.out
+dissertation/*.toc
+dissertation/*.lof
+dissertation/*.lot
+dissertation/*.run.xml
+dissertation/*.synctex.gz
+
 # Python / uv / tooling
 __pycache__/
 *.py[cod]

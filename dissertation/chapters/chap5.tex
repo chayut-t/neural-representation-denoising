@@ -1,0 +1,125 @@
+\chapter{Synthesis, Limitations, and a Testable Research Program}
+\label{chap:synthesis}
+
+\section{What does restoration learn?}
+\label{sec:synthesis-answer}
+
+The dissertation began with a concrete question: what structure can be learned by corrupting a valid observation or state and training a system to restore it? The two studies give complementary answers.
+
+In sparse coding, restoration pressure changes the \emph{cost of coefficient combinations}. Group weights are useful when they let finite inference reconstruct clean images from corrupted inputs. The learned object is therefore a structured regularizer adapted to an inference algorithm and corruption process.
+
+In the recurrent model, restoration pressure changes the \emph{flow of activity}. Recurrent parameters are useful when perturbed states return toward prescribed location codewords. The learned object is therefore a dynamical field around a desired family of states. Velocity-dependent parameters add a second field that moves activity along that family.
+
+The shared lesson is not simply ``denoising learns a manifold.'' A more precise statement is:
+
+\begin{quote}
+A corruption--restoration objective constrains how a model behaves near examples of valid structure. What the model learns depends on where corruption is injected, what variable is reconstructed, which parameters receive the gradient, and how restoration error is measured.
+\end{quote}
+
+This formulation makes the thesis falsifiable. Changing the corruption or target should change the learned structure in predictable ways. If it does not, the proposed interpretation is incomplete.
+
+\section{Restoration toward a set and transport along it}
+\label{sec:synthesis-geometry}
+
+Suppose valid states lie near a smooth set $\mathcal{M}\subset\R^N$. At a point $\vect{x}\in\mathcal{M}$, a local perturbation can be decomposed into components tangent and normal to the set. Let $\mat{P}_{T_{\vect{x}}\mathcal{M}}$ be the local tangent projector. An idealized restoration field $\vect{v}_{\mathrm{restore}}$ should primarily remove normal error,
+\begin{equation}
+\mat{P}_{T_{\vect{x}}\mathcal{M}}
+\vect{v}_{\mathrm{restore}}(\vect{x}+\delta\vect{x})
+\approx \vect{0},
+\end{equation}
+while an idealized transport field should be tangent,
+\begin{equation}
+\left(\mat{I}-\mat{P}_{T_{\vect{x}}\mathcal{M}}\right)
+\vect{v}_{\mathrm{transport}}(\vect{x})
+\approx \vect{0}.
+\end{equation}
+This decomposition is local and idealized. A denoising conditional mean can also move along the set toward higher density, especially near boundaries or nonuniform sampling. A discrete attractor may replace a continuous set with separated fixed points. Nevertheless, the normal/tangent distinction prevents a useful conceptual error: stabilization and motion are not opposite settings of one scalar energy parameter.
+
+In the sparse study, denoising is used to learn dependencies that are hypothesized to support smooth changes among related coefficients. The actual transport operator remains future work. In the attractor study, restoration and transport are both present operationally through $\mat{S}$ and velocity-modulated $\mat{A}$. This asymmetry explains why the second study makes the unifying idea more concrete.
+
+\section{What is common and what is not}
+\label{sec:synthesis-comparison}
+
+\begin{table}[htbp]
+\centering
+\caption{Evidence-calibrated comparison of the two studies.}
+\label{tab:synthesis-comparison}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.21\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Question & Sparse group learning & Recurrent spatial code \\
+\midrule
+What is specified? & Linear dictionary model, finite inference family, image corruption & Location code family, recurrent architecture, state/weight corruption \\
+What is learned? & Dictionary and coefficient-to-group weights & Restoration/transport weights and activity nonlinearity \\
+Where is error measured? & Reconstructed image & Final activity code and decoded location \\
+What is the strongest reported result? & Learned groups are structured and have the best patch SNR ordering & A selected mixed code has lower error in parts of the tested regime \\
+What remains ambiguous? & Exact group inference, normalization, seeds, capacity-matched baseline & Decoder, noise scaling, selection split, activity/norm/compute matching \\
+What would falsify the interpretation? & Failure to recover known groups or reproduce dependencies across seeds/data & Loss of advantage under fair budgets or frequent periodic aliasing failures \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The models differ in three important ways. First, the clean image is observed directly, whereas the desired recurrent code is designed by the modeler. Second, the image study evaluates reconstruction after inference, whereas the recurrent study evaluates temporal stability and readout. Third, the sparse study seeks structure in empirical data; the attractor study asks what dynamics preserve a hypothetical code. These differences limit any claim of a single biological principle.
+
+\section{Related work and interpretation}
+\label{sec:synthesis-later-work}
+
+Subsequent work makes several ideas easier to place.
+
+The denoising vector-field intuition is now understood more sharply through score estimation. Under controlled limits, reconstruction displacement estimates the score of a smoothed density \citep{alain14}; multi-noise score models extend that idea into powerful generative procedures \citep{song19}. This lineage supports the view that corruption reveals local distributional structure, while also showing why the corruption scale and target density must be explicit.
+
+Algorithm unrolling has become a standard way to connect optimization and trainable networks. LISTA provides an early example \citep{gregor10}. Both sparse group learning and recurrent training differentiate through a fixed number of iterations, so the resulting finite-depth computation can be judged as a model in its own right rather than assumed to equal an exact optimizer.
+
+For spatial representations, trained recurrent networks and artificial agents show that grid-like patterns can emerge from navigation objectives \citep{cueva18,banino18}. These studies learn the representation rather than prescribing it. At the biological level, toroidal topology in large grid-cell population recordings provides direct evidence that single-module activity occupies a low-dimensional periodic manifold \citep{gardner22}. It strengthens the manifold and continuous-attractor context while emphasizing a limitation of the simulation studied here: a biological grid module is fundamentally two-dimensional and toroidal.
+
+These findings do not validate the numerical comparisons in \cref{chap:group-sparse,chap:attractor}; instead, they identify a more precise intellectual neighborhood and motivate the next experiments.
+
+\section{Limitations that change the claims}
+\label{sec:synthesis-limitations}
+
+\subsection{Missing implementation details}
+
+The unavailable experiment code is the most important reproducibility limitation. Equations do not determine an implementation uniquely. Smoothing at zero, projection of nonnegative group weights, initialization, update ordering, random-number streams, boundary handling, and decoder conventions can all alter the result. The displayed figures and tables support the interpretations given here, but they do not enable computational reproduction.
+
+\subsection{Single-run summaries}
+
+The dissertation reports tables and curves without seed-level uncertainty. Variation within one group matrix is not a substitute for variation across training runs. Claims about a reliable advantage, recovered topology, or optimal frequency require repeated training and paired evaluation.
+
+\subsection{Model selection and comparison budgets}
+
+The fully learned group matrix has more flexibility than constrained baselines. The place--periodic study searches over code ratios and frequencies but does not document a separate confirmation set. In both chapters, a stronger comparison must match resources relevant to the proposed mechanism: parameter count, inference or training compute, activity budget, weight norm, decoder capacity, and selection effort.
+
+\subsection{Biological interpretation}
+
+Localized image filters and periodic spatial codes resemble biological response properties, but the studies do not fit neural recordings or test biological learning rules. The group-sparse study does not establish cortical wiring. The attractor study does not explain grid-cell development, two-dimensional lattice geometry, or modular scale organization. The appropriate biological claim is that the models instantiate computations that may be relevant to those systems.
+
+\section{A staged research program}
+\label{sec:synthesis-program}
+
+The limitations suggest a concrete sequence of tests.
+
+\subsection{Stage 1: formalize and validate the mathematics}
+
+Implement the intended group objective with explicit smoothing and either verified gradient descent or a correct overlapping-group proximal method. Check every analytical gradient by finite differences. For the recurrent model, define noise in discrete units, verify symmetry constraints after every update, and test transport direction and gain on analytically simple codes.
+
+\subsection{Stage 2: recover known structure}
+
+Use synthetic distributions with known overlapping groups and measure recovery up to group and coefficient permutations. For recurrent codes, construct systems with known fixed points and tangent generators, then measure whether training recovers their basin and transport properties.
+
+\subsection{Stage 3: make the comparisons fair}
+
+For sparse coding, match parameter count or add regularization/validation that accounts for group-matrix flexibility. Evaluate multiple seeds with paired corruptions. For location codes, match expected activity, weight norms, training compute, decoder class, and total units. Select ratios and frequencies on validation trajectories and evaluate once on frozen test trajectories.
+
+\subsection{Stage 4: test the proposed geometry directly}
+
+Estimate local Jacobians of the restoration map. Decompose their action into empirical tangent and normal directions. In recurrent networks, locate fixed points, measure contraction spectra and basin radii, and separately perturb restoration and transport components. These analyses test the normal/tangent story rather than inferring it from visual patterns.
+
+\subsection{Stage 5: extend the scientific setting}
+
+Train group models on public color images with distinct representation-analysis and RGB-denoising tracks. Extend spatial codes to multiple modules and two dimensions, including toroidal phase, path integration, boundary cues, and catastrophic aliasing metrics. Only after these controls should the central claims be tested for generalization.
+
+\section{Conclusion}
+\label{sec:synthesis-conclusion}
+
+The central idea is that corruption can create a useful learning signal for structure that is otherwise difficult to supervise. The evidence supports that idea as a constructive method. Denoising through sparse inference learns nontrivial coefficient dependencies in the reported examples; denoising through recurrent time learns dynamics that qualitatively stabilize prescribed codes; and a periodic component can improve selected one-dimensional memories under selected perturbations.
+
+The conclusion is deliberately bounded. These results do not prove a natural-image manifold model or explain why biological grid cells exist. They show where a restoration objective can be inserted, what it can tune, and how restoration should be separated from transport. That formulation is useful because it specifies what must be measured next.

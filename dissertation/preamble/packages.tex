@@ -1,0 +1,31 @@
+% Package set — LuaLaTeX translation of the 2026 baseline preamble.
+% Baseline used pdflatex (fontenc/lmodern) + natbib; here we use fontspec
+% (Latin Modern via LuaLaTeX) + biblatex/biber. Visual intent is preserved.
+\usepackage[letterpaper,inner=1.15in,outer=1.0in,top=1.0in,bottom=1.0in,headheight=15pt]{geometry}
+
+\usepackage{fontspec}          % LuaLaTeX font handling (replaces fontenc+lmodern)
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}
+
+\usepackage{microtype}
+\usepackage{graphicx}
+% Historical figures are read from the frozen, immutable baseline tree, and
+% generated replacements from dissertation/generated/. No writes to legacy/.
+\graphicspath{{generated/}{../legacy/rewrite-2026/source/images/}{../legacy/rewrite-2026/source/images/kz/}}
+
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,multirow,array,tabularx,longtable}
+\usepackage{caption,subcaption}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{xurl}
+
+\usepackage[backend=biber,style=authoryear,natbib=true,giveninits=true,maxcitenames=2]{biblatex}
+
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}

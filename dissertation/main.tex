@@ -1,0 +1,93 @@
+% Working dissertation edition — derived from the frozen 2026 baseline
+% (legacy/rewrite-2026/source/thesis.tex, commit 0c7617f). Migrated to
+% LuaLaTeX + latexmk + biblatex/biber per docs/decisions/0006-latex-engine.md.
+%
+% Provenance: chapters, abstract, appendix, and bibliography are byte-identical
+% copies of the frozen baseline (see FILE_MAP.csv). This driver and the preamble
+% are newly authored translations of thesis.tex (pdflatex/natbib -> LuaLaTeX/
+% biblatex). Structure, title, committee, and \label namespace are preserved as
+% the migration fidelity oracle (docs/baseline-audit-2026.md).
+\documentclass[11pt,oneside,openany]{book}
+
+\input{preamble/packages}
+\input{preamble/style}
+\input{preamble/macros}
+
+\addbibresource{bibliography/references.bib}
+
+\begin{document}
+
+\hypersetup{pageanchor=false}
+
+\begin{titlepage}
+\centering
+\vspace*{0.9in}
+{\sffamily\bfseries\LARGE Denoising Objectives for Learning and Stabilizing Neural Representations\par}
+\vspace{0.35in}
+{\Large Group Structure in Sparse Codes and Noise-Robust Spatial Attractors\par}
+\vspace{0.8in}
+{\large by\par}
+\vspace{0.12in}
+{\Large Chayut Thanapirom\par}
+\vfill
+{\large A dissertation in Physics\par}
+\vspace{0.35in}
+{\large July 2026\par}
+\vspace{0.5in}
+{\small Dissertation committee: Michael R. DeWeese (Chair), Bruno A. Olshausen, and Hernan G. Garcia\par}
+\end{titlepage}
+
+\frontmatter
+\hypersetup{pageanchor=true}
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+Copyright \textcopyright\ 2026 Chayut Thanapirom
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\input{frontmatter/abstract}
+\clearpage
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+In memory of my mother and my grandfather.
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\chapter*{Acknowledgments}
+\addcontentsline{toc}{chapter}{Acknowledgments}
+I am deeply grateful to my advisor, Mike DeWeese, for his support, encouragement, and confidence in me, especially when my own confidence was uncertain. I also thank my co-advisor, Bruno Olshausen, for the many hours he spent developing ideas with me, helping me through difficult problems, and serving as an academic role model.
+
+I thank Hernan Garcia for serving on my dissertation committee and for generously giving his time. I am grateful to everyone at the Redwood Center for listening to presentations, offering constructive criticism, helping me prepare for my qualifying examination, and making the Center such a stimulating and supportive place to work in theoretical neuroscience. I also thank Chanoknan Vorasucha for helping to write portions of the experimental code.
+
+My family and friends sustained me through the most difficult parts of graduate school. Finally, I gratefully acknowledge NVIDIA Corporation for the donation of the Tesla K40 GPU used in the experiments.
+
+\chapter*{Scope and reproducibility}
+\addcontentsline{toc}{chapter}{Scope and reproducibility}
+This dissertation develops two computational studies and a common interpretation based on corruption and restoration. The mathematical claims are derived in the text, and the empirical claims are limited to the figures, tables, and experimental procedures presented in the relevant chapters.
+
+The training code, model checkpoints, raw per-trial outputs, and random seeds are unavailable. Numerical comparisons are therefore reported as descriptive results rather than independent replications or claims of statistical significance. Missing implementation details and the experiments needed to resolve them are stated explicitly in \cref{sec:intro-scope,sec:synthesis-limitations}.
+
+\mainmatter
+\input{chapters/chap1}
+\input{chapters/chap2}
+\input{chapters/chap3}
+\input{chapters/chap4}
+\input{chapters/chap5}
+
+\appendix
+\input{appendices/appendix}
+
+\backmatter
+\printbibliography
+
+\end{document}

@@ -1,0 +1,330 @@
+\chapter{Learning Group Structure in Sparse Image Codes}
+\label{chap:group-sparse}
+
+\section{Question and evidence status}
+\label{sec:group-question}
+
+Standard sparse coding asks which basis functions explain an observation. Group sparse coding adds a second question: which coefficients should be treated as dependent? If the groups are fixed in advance, the answer is supplied by the modeler. This chapter examines whether overlapping group memberships can instead be learned by differentiating an image-denoising loss through sparse inference.
+
+The chapter has two aims. The methodological aim is to explain how denoising converts group-structure learning into a finite differentiable computation. The empirical aim is to interpret the toy and natural-image results without overstating what a single training run can establish.
+
+\begin{evidencenote}
+The figures and numerical tables summarize the experiments reported in this chapter. The training code, learned parameter arrays, random seeds, and raw evaluation records are unavailable. The mathematical objective is explicit, but the exact inference update cannot be reconstructed in every implementation detail.
+\end{evidencenote}
+
+\section{Related structured sparse models}
+\label{sec:group-related}
+
+Sparse coding with a factorial Laplace prior yields an $\ell^1$ penalty on individual coefficients \citep{ob97}. Natural-image coefficients are not independent: dependencies remain in their magnitudes even when linear correlations have been reduced \citep{zc99,se01,ky09}. Structured penalties model some of those dependencies by selecting or suppressing coefficients jointly.
+
+Independent subspace analysis uses disjoint groups of fixed size \citep{ha00}. Topographic independent component analysis and topographic sparse coding place units on a predefined two-dimensional lattice and use overlapping local neighborhoods \citep{ha01ica,ha01sc}. These choices can produce a topographic organization of learned filters, but the neighborhood graph is assumed. More general work on structured sparsity develops penalties and optimization methods for hierarchical or overlapping groups \citep{jenatton11,mairal11}. The distinctive goal here is to learn a dense, nonnegative group-weight matrix from a restoration objective rather than to specify the groups beforehand.
+
+This goal should be distinguished from learning a fast inference network. LISTA and related methods learn parameters of a finite-depth network to approximate sparse solutions \citep{gregor10}. The method here also differentiates through finite inference, but it uses that gradient to learn the structured penalty itself.
+
+\section{Model}
+\label{sec:group-model}
+
+Let $\vect{x}\in\R^N$ be an image patch, $\mat{\Phi}\in\R^{N\times M}$ a dictionary, and $\vect{s}\in\R^M$ its coefficient vector. For $K$ groups, define
+\begin{equation}
+\label{eq:group-activity}
+z_k(\vect{s})=
+\sqrt{\varepsilon+\sum_{i=1}^{M}\Lambda_{ki}s_i^2},
+\qquad \Lambda_{ki}\geq 0,
+\end{equation}
+and
+\begin{equation}
+\label{eq:group-penalty}
+\Omega_{\mat{\Lambda}}(\vect{s})
+=\sum_{k=1}^{K}z_k(\vect{s}).
+\end{equation}
+The corresponding inference objective is
+\begin{equation}
+\label{eq:group-objective}
+E(\vect{s};\vect{x},\mat{\Phi},\mat{\Lambda})
+=\frac{1}{2}\norm{\vect{x}-\mat{\Phi}\vect{s}}_2^2
++\lambda\Omega_{\mat{\Lambda}}(\vect{s}).
+\end{equation}
+Each row of $\mat{\Lambda}$ defines a group. A coefficient can participate in several rows, so groups may overlap. Standard sparse coding is recovered, up to scaling and smoothing, when $K=M$ and $\mat{\Lambda}$ is diagonal.
+
+The derivative of the structured penalty is
+\begin{equation}
+\label{eq:group-coefficient-gradient}
+\frac{\partial\Omega_{\mat{\Lambda}}}{\partial s_i}
+=s_i\sum_{k=1}^{K}\frac{\Lambda_{ki}}{z_k(\vect{s})}.
+\end{equation}
+This derivative has an intuitive effect. When other coefficients make group $k$ active, $z_k$ increases and the marginal cost of an additional coefficient in that group decreases. Coefficients in an active group can therefore cooperate. Coefficients that share no active group continue to compete through the overall sparsity pressure.
+
+\subsection{Mathematical clarification of inference}
+\label{sec:group-inference-clarification}
+
+The right-hand side of \cref{eq:group-coefficient-gradient} is a signed gradient component, not a nonnegative adaptive soft threshold. A mathematically direct gradient step for the smoothed objective is
+\begin{equation}
+\label{eq:group-gradient-step}
+\vect{s}_{t+1}=\vect{s}_t-\eta
+\left[
+\mat{\Phi}^{\mathsf{T}}(\mat{\Phi}\vect{s}_t-\vect{x})
++\lambda\nabla_{\vect{s}}\Omega_{\mat{\Lambda}}(\vect{s}_t)
+\right].
+\end{equation}
+Alternatively, one can use the proximal operator of the full overlapping-group penalty. Applying scalar soft thresholding with a signed ``threshold'' is not such an operator.
+
+The experiment used an ISTA-like recurrence unrolled for a fixed number of steps, but the available specification does not determine sign handling, smoothing, projection, and normalization completely. The reported results must therefore be interpreted as outputs of that finite computation, not as independently verified outputs of \cref{eq:group-gradient-step}.
+
+The dictionary gradient for a fixed inferred code is
+\begin{equation}
+\label{eq:dictionary-gradient}
+-\frac{\partial E}{\partial\mat{\Phi}}
+=(\vect{x}-\mat{\Phi}\vect{s})\vect{s}^{\mathsf{T}}.
+\end{equation}
+Each dictionary column is normalized to unit $\ell^2$ norm after an update to remove the dictionary--coefficient scale ambiguity.
+
+\section{Why maximum likelihood is expensive}
+\label{sec:group-likelihood}
+
+The same penalty can define a prior
+\begin{equation}
+\label{eq:group-prior}
+p(\vect{s};\mat{\Lambda})
+=\frac{1}{Z(\mat{\Lambda})}
+\exp\left[-\Omega_{\mat{\Lambda}}(\vect{s})\right],
+\end{equation}
+with a Gaussian observation model $p(\vect{x}\mid\vect{s})$. The log marginal likelihood is
+\begin{equation}
+\log p(\vect{x})
+=\log\int p(\vect{x}\mid\vect{s})
+p(\vect{s};\mat{\Lambda})\,d\vect{s}.
+\end{equation}
+For a group weight, the gradient has a positive-phase/negative-phase form:
+\begin{equation}
+\label{eq:lambda-likelihood-gradient}
+\frac{\partial\log p(\vect{x})}{\partial\Lambda_{ki}}
+=
+\E_{p(\vect{s})}
+\left[\frac{s_i^2}{2z_k}\right]
+-
+\E_{p(\vect{s}\mid\vect{x})}
+\left[\frac{s_i^2}{2z_k}\right].
+\end{equation}
+The factor $1/2$ follows from differentiating the square root. It can be absorbed into a proportional learning rate, which is why omitting it does not change the direction of a proportional update, but it belongs in an equality. Both expectations are generally intractable and require approximation or sampling. The full derivation appears in \cref{app:group-ml}.
+
+\section{Learning group weights with denoising}
+\label{sec:group-denoising}
+
+The denoising alternative starts from a clean patch $\vect{x}$ and constructs
+\begin{equation}
+\label{eq:group-corruption}
+\tilde{\vect{x}}=\vect{x}+\vect{\nu},
+\qquad
+\vect{\nu}\sim\mathcal{N}(\vect{0},\sigma^2\mat{I}).
+\end{equation}
+A finite inference procedure produces
+\begin{equation}
+\vect{s}_T
+=F^{(T)}(\tilde{\vect{x}};\mat{\Phi},\mat{\Lambda}),
+\qquad
+\hat{\vect{x}}=\mat{\Phi}\vect{s}_T.
+\end{equation}
+The group matrix is trained to reduce
+\begin{equation}
+\label{eq:group-denoising-loss}
+\mathcal{L}_{\mathrm{denoise}}
+=\norm{\vect{x}-\hat{\vect{x}}}_2^2,
+\qquad
+\Delta\mat{\Lambda}\propto
+-\frac{\partial\mathcal{L}_{\mathrm{denoise}}}
+{\partial\mat{\Lambda}}.
+\end{equation}
+Automatic differentiation propagates the error through the decoder and all inference steps. This replaces the two expectations in \cref{eq:lambda-likelihood-gradient} with a supervised target manufactured from the clean observation.
+
+Training alternated two updates. Dictionary atoms were trained to reconstruct clean patches; group weights were trained using corrupted inputs and clean reconstruction targets. This division makes the interpretation concrete: $\mat{\Phi}$ learns reusable image components, while $\mat{\Lambda}$ is adjusted to improve finite-depth restoration under the selected corruption process.
+
+It does not follow that $\mat{\Lambda}$ is the maximum-likelihood group structure. It is optimized for the finite inference rule, corruption distribution, reconstruction loss, and training schedule. That task-dependent structure may be useful, but it is a different estimand.
+
+\section{Toy geometry and recovery}
+\label{sec:group-toy}
+
+The toy example makes group structure visible. Set $N=M=3$ and $\mat{\Phi}=\mat{I}$. Three penalties illustrate a progression:
+\begin{align}
+\Omega^{(a)}(\vect{s})&=\sqrt{s_1^2+s_2^2+s_3^2},\\
+\Omega^{(b)}(\vect{s})&=\sqrt{s_1^2+s_2^2}+\abs{s_3},\\
+\Omega^{(c)}(\vect{s})&=\abs{s_1}+\abs{s_2}+\abs{s_3}.
+\end{align}
+The first is rotationally symmetric and does not prefer coordinate-aligned sparsity. The third is factorial and favors individual coordinate axes. The middle penalty permits low-cost interpolation within the $(s_1,s_2)$ plane while keeping the $s_3$ direction separate.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.73\textwidth]{groupisocost.pdf}
+\caption[Group-penalty iso-cost surfaces]{Iso-cost surfaces for an $\ell^2$ penalty, a plane-plus-axis group penalty, and a factorial $\ell^1$ penalty. The surfaces visualize which coefficient combinations receive equal regularization cost.}
+\label{fig:group-isocost}
+\end{figure}
+
+The synthetic data lie either on the $xy$-plane or on the $z$-axis. An appropriate model should group two atoms spanning the plane and keep the axial atom separate. The learned dictionary approximately rotates within the plane while retaining one axial atom; the learned group matrix has two rows coupling the planar atoms and one row assigned to the axial atom.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.58\textwidth]{toydata.png}
+\caption[Toy data and learned contour]{Toy experiment. (a) Samples occupy a plane or an axis. (b) The learned iso-cost contour has a planar component and a separate axial component.}
+\label{fig:group-toy}
+\end{figure}
+
+\begin{evidencenote}
+The toy result is qualitatively consistent with the intended dependency. It is not a quantitative recovery study: there is no multi-seed distribution, permutation-invariant recovery metric, or comparison with alternative estimators. Its role is to demonstrate plausibility, not establish reliability.
+\end{evidencenote}
+
+\section{Natural-image experiment}
+\label{sec:group-natural}
+
+The dataset used grayscale photographs from the van Hateren collection \citep{hj98}. Thirty-five images supplied training patches and a different set of thirty-five supplied test patches. Images were log transformed, center cropped, whitened in the frequency domain, downsampled, and divided into overlapping $16\times16$ patches. Each patch had its mean removed, and the dataset was scaled to unit pixel variance. The preprocessing pipeline and image identifiers appear in \cref{app:image-preprocessing}.
+
+All sparse models used $N=M=K=256$. The documented procedure alternated dictionary and group updates, used finite inference, and trained separate models at three input SNR levels. The compared models were:
+
+\begin{description}[style=nextline]
+  \item[Diag-1] a diagonal group matrix with one shared nonzero value;
+  \item[Diag] a diagonal matrix with independently learned diagonal values;
+  \item[3x3-1] fixed overlapping $3\times3$ groups with one shared nonzero value;
+  \item[3x3] the same fixed neighborhoods with a learned value per group;
+  \item[Fully learned] an unconstrained overlapping group pattern, subject to the implementation's nonnegativity and scaling conventions; and
+  \item[DAE] a one-hidden-layer denoising autoencoder baseline using a threshold-like nonlinearity.
+\end{description}
+
+The names describe constraints, not equal statistical capacity. In particular, the fully learned group matrix contains more adjustable entries than the diagonal and fixed-topographic variants.
+
+\subsection{Denoising comparison}
+
+\begin{table}[htbp]
+\centering
+\caption[Patch denoising SNR]{Mean output SNR (dB) for denoising whitened test patches. No seed-level uncertainty or paired test record is available.}
+\label{tab:denoising-results}
+\begin{tabular}{@{}rrrrrrr@{}}
+\toprule
+Input & DAE & Diag-1 & Diag & 3x3-1 & 3x3 & Fully learned \\
+\midrule
+0.000 & 4.039 & 3.755 & 3.771 & 4.200 & 4.236 & \textbf{4.309} \\
+3.000 & 5.776 & 5.541 & 5.593 & 5.996 & 6.059 & \textbf{6.121} \\
+6.000 & 7.838 & 7.667 & 7.747 & 8.059 & 8.139 & \textbf{8.146} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ordering is consistent across the three rows: the fully learned group model has the largest reported output SNR, while the strongest fixed-topographic model is close. The difference between learned groups and a factorial diagonal model is more visible than the difference between learned groups and the flexible $3\times3$ model. Thus the table supports the bounded statement that group structure helped in this setup. It does not establish that learning an unrestricted group matrix is reliably better than a well-chosen topographic prior.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\textwidth]{denoising_eg_3dB.png}
+\caption[Denoising examples]{Patches at 3 dB input SNR. Rows show clean patches, corrupted patches, fully learned group reconstructions, fixed-topographic reconstructions, and diagonal-model reconstructions. Visual differences among the three sparse outputs are small.}
+\label{fig:group-denoising-examples}
+\end{figure}
+
+The examples reinforce that calibration matters. A numerical ordering in average patch SNR does not imply a large perceptual difference. Moreover, whitened $16\times16$ grayscale patches are not directly comparable with modern full-image RGB denoising benchmarks. Deep residual denoisers and weakly supervised methods are relevant background \citep{zhang17,lehtinen18}, but no fair comparison can be inferred from this table.
+
+\subsection{Dictionaries and learned groups}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{basis3dB.png}
+\caption[Learned dictionaries]{Dictionaries at 3 dB training SNR: (a) diagonal sparse coding, (b) fixed $3\times3$ topology, (c) fully learned groups, and (d) the denoising autoencoder decoder. The sparse dictionaries contain localized oriented filters; the fixed-topographic dictionary is ordered by its prescribed neighborhood structure.}
+\label{fig:group-bases}
+\end{figure}
+
+The dictionaries in \cref{fig:group-bases} contain many localized, oriented filters. Qualitative similarity to Gabor functions is expected for sparse models trained on whitened natural images \citep{ob96,ob97}. The result does not imply that the group-learning procedure uniquely produces such atoms; the diagonal model produces them as well.
+
+To inspect group memberships, the analysis declares coefficient $j$ a member of group $k$ when
+\begin{equation}
+\label{eq:group-membership-threshold}
+\Lambda_{kj}\geq 0.1\max_{j'}\Lambda_{kj'}.
+\end{equation}
+This converts continuous weights into a binary graph. The threshold is a visualization choice, not an intrinsic property of the model, so conclusions based on counts should be tested for threshold sensitivity.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.87\textwidth]{groupeg3dB.png}
+\caption[Examples of learned groups]{Thirty-two groups selected from the 256-group model trained at 3 dB input SNR. Each column contains atoms passing the threshold in \cref{eq:group-membership-threshold}. Within many columns, atoms have similar position, orientation, or spatial scale.}
+\label{fig:group-examples}
+\end{figure}
+
+The selected groups appear structured, but visual inspection is vulnerable to selection and confirmation effects. A modern analysis would define the selection rule before inspecting the groups and compare within-group feature distance against weight-preserving null graphs.
+
+For the all-group visualization, each atom was fit with a Gabor function. The corrected form is
+\begin{align}
+g(x,y)
+&=a\exp\left[-\frac{1}{2}
+\left(
+\frac{x'^2}{\sigma_x^2}
++\frac{y'^2}{\sigma_y^2}
+\right)\right]
+\cos(kx'+\varphi),
+\label{eq:corrected-gabor}\\
+x'&=(x-t_x)\cos\theta-(y-t_y)\sin\theta,\\
+y'&=(x-t_x)\sin\theta+(y-t_y)\cos\theta.
+\end{align}
+The Gaussian envelope requires the minus sign shown in \cref{eq:corrected-gabor}; without it, the envelope grows rather than decays away from its center.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\textwidth]{groupstructure3dB.pdf}
+\caption[All-group visualization]{Visualization of all groups from the 3 dB model. Each small panel represents one group; fitted atom position, orientation, scale, and thresholded group weight determine the displayed marks.}
+\label{fig:group-all}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption[Group graph statistics]{Mean $\pm$ standard deviation of thresholded graph statistics. The deviations summarize variation across groups or units within one learned matrix, not variation across training seeds.}
+\label{tab:group-statistics}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+Statistic & Diagonal & 3x3 & Learned 0 dB & Learned 3 dB & Learned 6 dB \\
+\midrule
+Group size & 1 & 9 & 9.0$\pm$1.5 & 9.4$\pm$1.4 & 8.8$\pm$2.4 \\
+Membership size & 1 & 9 & 9.0$\pm$1.7 & 9.4$\pm$2.6 & 8.8$\pm$3.1 \\
+Group neighbor size & 0 & 24 & 30.2$\pm$5.8 & 33.9$\pm$6.5 & 32.3$\pm$10.1 \\
+Unit neighbor size & 0 & 24 & 30.5$\pm$6.1 & 31.4$\pm$6.5 & 29.5$\pm$9.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under the selected threshold, learned groups have mean group and membership sizes near those of the fixed $3\times3$ construction, while their group-neighbor and unit-neighbor counts are larger. The most direct interpretation is graph overlap: the thresholded learned graph connects more distinct neighborhoods. Establishing a stable property of natural-image statistics would require repetitions and sensitivity to both threshold and group-weight normalization.
+
+\section{Minimum-wiring embedding}
+\label{sec:group-wiring}
+
+The analysis asks whether a learned bipartite graph between units and groups can be arranged in a low-dimensional physical space. Unit and group positions $\vect{r}_i\in\R^d$ are optimized with an objective containing repulsion among like nodes, weighted attraction between connected unit--group pairs, and confinement toward the origin:
+\begin{multline}
+\label{eq:wiring-objective}
+E_{\mathrm{wire}}=
+\sum_{i<j\in\mathcal{U}}
+\exp\left(-\frac{\norm{\vect{r}_i-\vect{r}_j}_2^2}{2}\right)
++
+\sum_{k<\ell\in\mathcal{G}}
+\exp\left(-\frac{\norm{\vect{r}_k-\vect{r}_\ell}_2^2}{2}\right)\\
++\mu_1
+\sum_{i\in\mathcal{U},k\in\mathcal{G}}
+\Lambda_{ki}\norm{\vect{r}_i-\vect{r}_k}_2^2
++\mu_2\sum_{i\in\mathcal{U}\cup\mathcal{G}}
+\norm{\vect{r}_i}_2^2.
+\end{multline}
+This is an embedding objective, not a biological wiring model derived from anatomy. Its outcome depends on the relative scales of all four terms, initialization, optimizer, and dimensionality-dependent normalization.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.72\textwidth]{minwire2d.png}
+\caption[Two-dimensional wiring embedding]{Two-dimensional minimum-wiring arrangement for the fully learned 3 dB model. The image demonstrates that one optimized layout can be displayed in two dimensions; it does not establish uniqueness or anatomical correspondence.}
+\label{fig:group-wiring-map}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{minwire_vs_d.pdf}
+\caption[Wiring cost versus dimension]{Optimized wiring objective versus embedding dimension. The curve begins to flatten near two dimensions. Repeated starts, uncertainty, and null-graph curves are unavailable.}
+\label{fig:group-wiring-dimension}
+\end{figure}
+
+The curve in \cref{fig:group-wiring-dimension} is compatible with a compact low-dimensional embedding. It is insufficient to conclude that the learned organization is intrinsically two-dimensional. That conclusion would require repeated optimization, dimension-normalized comparisons, null graphs matched for degree and weight distribution, and stability of local neighborhoods.
+
+\section{What the study supports}
+\label{sec:group-discussion}
+
+Three observations survive a careful reading. First, the denoising-through-inference idea can produce a qualitatively appropriate grouping on the toy distribution. Second, the natural-image model learns nontrivial overlapping weights whose strongest connections often join filters with similar visual features. Third, the denoising table consistently favors the fully learned model over factorial variants in the tested setup, while showing only a small advantage over the most flexible fixed-topographic variant.
+
+The results do not yet support several stronger claims. The denoising objective does not by itself prove maximum-likelihood recovery of a natural-image prior. The thresholded graph statistics are not seed-level uncertainty. A low wiring cost in two dimensions does not demonstrate cortical topography. Finally, the learned structure has more degrees of freedom than constrained baselines, and the comparison does not match parameter count or compute.
+
+The most useful forward direction is therefore not to claim a universal denoising improvement. It is to test whether a learned structured prior is reproducible and interpretable under controlled data, matched inference, and explicit null models. A modern study would use public color images, separate representation analysis from RGB restoration, record every corruption and seed, quantify group recovery on synthetic data, and report paired multi-seed comparisons. Those experiments would determine whether the qualitative dependencies visible here are stable properties of data or contingent properties of one training run.
