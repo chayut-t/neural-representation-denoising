@@ -73,3 +73,38 @@ def test_scanner_covers_dockerfiles() -> None:
 def test_scan_repo_is_clean() -> None:
     """The tracked repo must currently have zero generic-pattern hits."""
     assert scanner.scan() == []
+
+
+def test_bare_account_id_forms_flagged_but_plain_number_not() -> None:
+    """ARN and account_id= forms are flagged; a bare 12-digit number is not (A5)."""
+    arn = "arn:aws:iam::" + "3" * 12 + ":role/foo"
+    assign = "account_id = " + "4" * 12
+    plain = "timestamp 123456789012 is just a number"
+    assert any(pat.search(arn) for _, pat in scanner.PATTERNS)
+    assert any(pat.search(assign) for _, pat in scanner.PATTERNS)
+    assert not any(pat.search(plain) for _, pat in scanner.PATTERNS)
+
+
+def test_leak_patterns_module_is_scanned_not_skipped() -> None:
+    """The shared pattern module is in scope (only the scanner script is skipped) (A5)."""
+    scanned = {p.relative_to(scanner.REPO_ROOT).as_posix() for p in scanner._tracked_files()}
+    assert "src/neural_repr/provenance/leak_patterns.py" in scanned
+    only_skip = "scripts/release/scan_public_leaks.py"
+    assert frozenset({only_skip}) == scanner._SKIP_EXACT_PATHS
+
+
+def test_non_canary_internal_url_would_be_detected() -> None:
+    """A NEW non-canary internal URL (as if added to any scanned file) is caught (A5).
+
+    Assembled at runtime so no literal internal URL sits in this tracked file.
+    """
+    real = "https://" + "wiki.secret" + ".internal/page"
+    assert real not in CANARIES
+    probe = scanner._strip_canaries(real)  # not a canary, so survives stripping
+    assert any(pat.search(probe) for _, pat in scanner.PATTERNS)
+
+
+def test_tracked_private_note_is_unconditional_failure() -> None:
+    """A tracked infrastructure.local.md / *.local.md is flagged even if content is clean (A5)."""
+    assert "docs/infrastructure.local.md" in scanner._MUST_NOT_BE_TRACKED
+    assert scanner._FORBIDDEN_TRACKED_SUFFIXES == (".local.md",)

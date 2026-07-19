@@ -1,12 +1,21 @@
 {
-  "description": "Frozen reference for the tiny numerical-smoke oracle (tol-regression-tiny; plan §6.3, decision 0005). Captured on the CPU reference platform.",
+  "description": "Frozen reference for the tiny numerical-smoke oracle (tol-regression-tiny; plan §6.3, decision 0005).",
   "seed": 0,
   "device": "cpu",
   "value": 4066.733107,
-  "reference_platform": {
-    "torch_version": "2.13.0",
-    "note": "captured on macOS arm64 + torch 2.13.0 CPU; CI Linux uses the same locked torch."
+  "fingerprint": "2473e4da4006f299",
+  "capture_platform": {
+    "os_system": "Darwin",
+    "machine": "arm64",
+    "python_version": "3.11.15",
+    "torch_version": "2.13.0"
   },
-  "relative_tolerance": 1e-3,
-  "policy": "Same platform/process must reproduce the fingerprint exactly; other platforms must match `value` within `relative_tolerance` (documented cross-platform boundary, plan §2.4). Tighten once a single reference platform is fixed for the confirmatory freeze."
+  "capture_platform_is_reference_container": false,
+  "cross_platform_relative_tolerance": 1e-3,
+  "policy": {
+    "same_platform": "On a platform matching capture_platform exactly (os_system, machine, python_version, torch_version), the run MUST reproduce `fingerprint` bit-for-bit; `value` matches exactly.",
+    "cross_platform": "On any other platform, only `value` is compared, within cross_platform_relative_tolerance (the documented §2.4 cross-platform boundary). The fingerprint is NOT required to match.",
+    "provenance_note": "This oracle was captured on the maintainer's DEVELOPMENT platform (macOS arm64), NOT inside the public Linux CPU reference container. It is therefore an interim drift guard. The authoritative reference-container oracle (and a tightened, evidence-backed tolerance) is captured at Phase 13 when the reference environment is fixed; capture_platform_is_reference_container flips to true then.",
+    "tolerance_basis": "1e-3 relative is an interim guard, not a measured bound: it comfortably exceeds observed same-platform drift (0) while tolerating BLAS/arch differences across CPUs until the reference platform is fixed. It will be replaced by a measured cross-environment bound at the Phase 13 freeze (tol-ch3-xenv / tol-ch4-xenv style)."
+  }
 }

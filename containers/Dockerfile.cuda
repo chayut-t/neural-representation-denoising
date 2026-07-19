@@ -23,8 +23,8 @@ ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
 # git for provenance; build-essential for any sdists. Python itself is provided by uv
-# (managed 3.11, matching .python-version / uv.lock) rather than apt, so the interpreter
-# is pinned by the lockfile rather than by the base image's default Python.
+# (managed CPython 3.11.15, the exact patch pinned in .python-version) rather than apt,
+# so the interpreter is reproducible across rebuilds — not merely "some 3.11.x".
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git build-essential ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -41,9 +41,12 @@ WORKDIR /workspace
 # committed uv.lock (torch 2.13.0 + CUDA 13.0 wheels from PyPI).
 COPY .python-version pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN uv python install 3.11 \
+# Install the EXACT interpreter recorded in .python-version (3.11.15), not "any 3.11".
+RUN uv python install \
     && uv sync --locked --extra cuda --extra image --no-dev
 
 ENTRYPOINT ["uv", "run"]
-# Default self-check requires CUDA and exercises a real GPU op (fails on a CPU-only host).
-CMD ["neural-repr-verify", "check-image", "--require-cuda"]
+# Default self-check requires CUDA and a real GPU op, and asserts the exact Python,
+# torch, and CUDA versions of the public reference stack (fails on a CPU-only host).
+CMD ["neural-repr-verify", "check-image", "--require-cuda", \
+     "--expect-python", "3.11.15", "--expect-torch", "2.13.0", "--expect-cuda", "13.0"]

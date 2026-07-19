@@ -12,9 +12,9 @@ artifact, and cross-environment tolerances are committed here.
 | id | scope | metric / comparison | value | status | owner | due (phase) |
 |---|---|---|---|---|---|---|
 | tol-env-bootstrap | environment | `uv sync --locked` resolves to the locked set; `system-info` schema validates | exact match | committed | maintainer | Phase 2 |
-| tol-regression-tiny | regression | tiny fixed-seed CPU smoke output vs committed reference (`tests/regression/numerical_smoke_reference.json`) | value 4066.733107, rel 1e-3 (same platform: exact fingerprint) | committed | maintainer | Phase 2 |
-| tol-gradient-fd | numerical | analytic vs finite-difference gradients (sparse + recurrent) | TBD (rel) | pending | maintainer | Phases 3–5 |
-| tol-solver-convergence | numerical | sparse-inference objective vs trusted convex reference | TBD (rel) | pending | maintainer | Phases 3–5 |
+| tol-regression-tiny | regression | tiny fixed-seed CPU smoke output vs committed reference (`tests/regression/numerical_smoke_reference.json`) | value 4066.733107; **capture-platform match → exact fingerprint** (`2473e4da4006f299`); other platforms → value within rel 1e-3 (interim guard; captured on dev macOS arm64, re-anchored to the Linux CPU reference container at Phase 13) | committed (interim) | maintainer | Phase 2 (re-anchor Phase 13) |
+| tol-gradient-fd | numerical | analytic vs central finite-difference gradients (sparse + recurrent), float64 CPU | rel 1e-6, abs 1e-9 (BPTT/unrolled: rel 1e-5, abs 1e-7) | committed | maintainer | Phase 3 |
+| tol-solver-convergence | numerical | `smooth_gradient` sparse inference vs independent scipy L-BFGS-B solve of the smoothed objective | rel 1e-3, abs 1e-4 | committed | maintainer | Phase 3 |
 | tol-faithful-reimpl | faithful | legacy-compatible reimplementation vs documented historical behavior | TBD | pending | maintainer | Phases 3–5 |
 | tol-ch3-denoising | confirmatory | ΔSNR / ΔPSNR / ΔSSIM primary metrics, per-family | TBD | pending | maintainer | before Phase 6 freeze |
 | tol-ch3-xenv | cross-env | Ch3 metrics: public-reference vs private source run | TBD | pending | maintainer | before Phase 6 freeze |

@@ -28,10 +28,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Dockerfile.cuda
         run: docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .
-      - name: Assert declared torch/CUDA stack in the built image (no GPU needed)
+      - name: Assert declared python/torch/CUDA stack in the built image (no GPU needed)
         # Version assertion runs on any runner; it does NOT require a GPU. It fails
-        # if the image's torch/CUDA differs from the committed uv.lock stack.
-        run: docker run --rm neural-repr:cuda neural-repr-verify check-image --expect-torch 2.13 --expect-cuda 13.0
+        # if the image's python/torch/CUDA differs from the committed reference stack.
+        run: docker run --rm neural-repr:cuda neural-repr-verify check-image --expect-python 3.11.15 --expect-torch 2.13 --expect-cuda 13.0
       # NOTE: the ubuntu-latest runner has no GPU, so the CUDA *runtime* self-check
       # (check-image --require-cuda) is NOT run here. Per Gate P2 that runtime check
       # is PENDING until a GPU-capable runner (or the Phase 13 reference environment)
@@ -48,7 +48,7 @@ jobs:
       - name: Build CUDA image
         run: docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .
       - name: Require-CUDA self-check (fails if GPU/CUDA unavailable; runs a GPU op)
-        run: docker run --rm --gpus all neural-repr:cuda neural-repr-verify check-image --require-cuda --expect-torch 2.13 --expect-cuda 13.0
+        run: docker run --rm --gpus all neural-repr:cuda neural-repr-verify check-image --require-cuda --expect-python 3.11.15 --expect-torch 2.13 --expect-cuda 13.0
 
   base-pullable:
     name: pinned public bases remain pullable

@@ -41,11 +41,18 @@ docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .   # GPU profile
 
 ### Build the dissertation
 
-Requires TeX Live (LuaLaTeX, latexmk, biber). From `dissertation/`:
+Requires TeX Live (LuaLaTeX, latexmk, biber). Use the canonical build script, which
+writes to a content-addressed, non-overwriting `builds/dissertation/<id>/` directory
+(leaving the `dissertation/` source tree clean) and records a build manifest:
 
 ```sh
-latexmk -r latexmkrc main.tex
+uv run python scripts/release/build_dissertation.py
 ```
+
+This is the path CI uses and the only supported way to produce a release PDF. A direct
+`latexmk -r latexmkrc main.tex` inside `dissertation/` is fine for **local, noncanonical
+iteration** only — it writes artifacts in place and its output must not be committed or
+treated as a release build.
 
 ## Contributing
 

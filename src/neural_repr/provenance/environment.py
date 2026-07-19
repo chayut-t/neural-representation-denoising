@@ -21,11 +21,12 @@ import hashlib
 import json
 import os
 import platform
+import re
 from dataclasses import asdict, dataclass, field
 from importlib import metadata
 from pathlib import Path
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 # Packages whose exact versions materially affect numerics / results. Kept small
 # and explicit so the record is stable and reviewable; extended as deps land.
@@ -107,23 +108,59 @@ def _determinism_flags() -> dict[str, object]:
     return flags
 
 
+# Vendor-neutral compiler/runtime facts a third party needs as scientific
+# provenance, parsed out of torch's build config. Values are short tokens (names,
+# versions, thread counts) — never paths or host identifiers.
+_BUILD_FACT_PATTERNS: dict[str, re.Pattern[str]] = {
+    "cxx_compiler": re.compile(r"C\+\+ Version:\s*(\d[\w.]*)"),
+    "openmp": re.compile(r"(?:USE_OPENMP=ON|OpenMP\b)"),
+    "blas": re.compile(r"(?:BLAS_INFO|BLAS)[=:]\s*(\w+)"),
+}
+
+
+def _blas_impl(build: str) -> str | None:
+    m = _BUILD_FACT_PATTERNS["blas"].search(build)
+    return m.group(1).lower() if m else None
+
+
+def _cxx_version(build: str) -> str | None:
+    m = _BUILD_FACT_PATTERNS["cxx_compiler"].search(build)
+    return m.group(1) if m else None
+
+
 def _runtime_details() -> dict[str, object]:
-    """Numerics-affecting compiler/runtime details (vendor-neutral)."""
+    """Numerics-affecting compiler/runtime facts (vendor-neutral, no paths/hosts).
+
+    Records the actual facts a third party needs to reason about numeric
+    reproducibility — BLAS implementation, C++ compiler version, OpenMP presence,
+    torch thread counts — plus a stable hash of the full build string as a tamper
+    check. The parsed facts are short tokens (names/versions/ints), never absolute
+    paths or host identifiers.
+    """
     info: dict[str, object] = {
         "cpu_count": os.cpu_count(),
         "total_ram_gib": _total_ram_gib(),
+        "blas_impl": None,
+        "cxx_version": None,
+        "openmp_enabled": None,
+        "torch_num_threads": None,
+        "torch_num_interop_threads": None,
+        "torch_build_config_sha256": None,
     }
     try:
         import torch
 
-        # A stable hash of the torch build string (contains compiler/BLAS/OpenMP
-        # config) rather than the raw multi-line string, which can vary in
-        # whitespace and is noisy in a committed record.
         build = torch.__config__.show()
         info["torch_build_config_sha256"] = "sha256:" + hashlib.sha256(build.encode()).hexdigest()
-        info["torch_parallel_info_present"] = True
+        info["blas_impl"] = _blas_impl(build)
+        info["cxx_version"] = _cxx_version(build)
+        info["openmp_enabled"] = bool(_BUILD_FACT_PATTERNS["openmp"].search(build))
+        with contextlib.suppress(Exception):
+            info["torch_num_threads"] = int(torch.get_num_threads())
+        with contextlib.suppress(Exception):
+            info["torch_num_interop_threads"] = int(torch.get_num_interop_threads())
     except Exception:
-        info["torch_parallel_info_present"] = False
+        pass
     return info
 
 

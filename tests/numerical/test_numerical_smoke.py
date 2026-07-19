@@ -27,14 +27,19 @@ def test_numerical_smoke_repeatable_same_seed() -> None:
 
 
 def test_numerical_smoke_matches_committed_reference() -> None:
-    """Compare the CPU result to a committed reference value within tolerance.
+    """Compare the CPU result to the committed reference oracle (tol-regression-tiny).
 
-    This is the frozen tiny regression oracle (tol-regression-tiny; decision 0005):
-    unlike the self-comparison above, it detects drift *between commits/platforms*.
-    Same platform reproduces the fingerprint exactly; other platforms must match
-    the value within the documented relative tolerance (plan §2.4 boundary).
+    Frozen tiny regression oracle (decision 0005): detects drift between commits and
+    platforms. Policy (plan §2.4 boundary), enforced honestly per the recorded
+    capture platform:
+
+    * If the running platform matches the oracle's ``capture_platform`` exactly, the
+      **fingerprint must match bit-for-bit** (exact reproduction).
+    * Otherwise only ``value`` is compared, within the documented cross-platform
+      relative tolerance; the fingerprint is not required to match.
     """
     import json
+    import platform
     from pathlib import Path
 
     ref = json.loads(
@@ -43,11 +48,29 @@ def test_numerical_smoke_matches_committed_reference() -> None:
         ).read_text()
     )
     result = numerical_smoke(seed=ref["seed"], device=ref["device"])
-    rel = abs(result["value"] - ref["value"]) / abs(ref["value"])
-    assert rel <= ref["relative_tolerance"], (
-        f"numerical smoke {result['value']} drifted from reference {ref['value']} "
-        f"(relative {rel:.2e} > {ref['relative_tolerance']:.0e})"
+
+    cap = ref["capture_platform"]
+    import torch
+
+    on_capture_platform = (
+        platform.system() == cap["os_system"]
+        and platform.machine() == cap["machine"]
+        and platform.python_version() == cap["python_version"]
+        and torch.__version__ == cap["torch_version"]
     )
+    if on_capture_platform:
+        assert result["fingerprint"] == ref["fingerprint"], (
+            f"on the capture platform the fingerprint must reproduce exactly: "
+            f"got {result['fingerprint']}, expected {ref['fingerprint']}"
+        )
+        assert result["value"] == ref["value"]
+    else:
+        rel = abs(result["value"] - ref["value"]) / abs(ref["value"])
+        tol = ref["cross_platform_relative_tolerance"]
+        assert rel <= tol, (
+            f"numerical smoke {result['value']} drifted from reference {ref['value']} "
+            f"(relative {rel:.2e} > {tol:.0e}) on a non-capture platform"
+        )
 
 
 def test_numerical_smoke_varies_with_seed() -> None:

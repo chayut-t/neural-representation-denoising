@@ -17,7 +17,12 @@ Pinned by digest end to end for reproducibility:
 - the base images (`FROM ...@sha256:`);
 - the `uv` builder image (`ghcr.io/astral-sh/uv@sha256:...`, not the mutable `:0.11.29` tag);
 - all Python dependencies, via the committed `uv.lock` (`uv sync --locked`), including the
-  torch/CUDA stack.
+  torch/CUDA stack;
+- the **exact** CPython patch release (`3.11.15`), pinned in `.python-version` and installed
+  with `uv python install` (no bare `3.11`), so a rebuild cannot pick up a newer 3.11.x. The
+  managed interpreter is fetched by `uv` from the `python-build-standalone` project; `uv`
+  verifies its download against that project's published SHA-256. `check-image --expect-python
+  3.11.15` asserts the running interpreter matches.
 
 **Not** bit-for-bit pinned: the base images' own APT package set is whatever the pinned base
 layer already contains, plus a small fixed list we `apt-get install` **without version pins**
@@ -30,9 +35,9 @@ dated Debian/Ubuntu snapshot source and pin versions; recorded here as a deliber
 
 The committed `uv.lock` resolves **torch 2.13.0 (from PyPI)** bundling **CUDA 13.0** runtime
 wheels (`nvidia-cuda-runtime` 13.0.x, `nvidia-cudnn-cu13`). `Dockerfile.cuda` therefore uses a
-**CUDA 13.0** base so the base runtime and the torch wheels agree. Python is **3.11**, provided
-by `uv` (managed) rather than the base image's default, so the interpreter is pinned by the
-lockfile. (Earlier drafts referred to an "official PyTorch CUDA index" and a CUDA 12.4 base;
+**CUDA 13.0** base so the base runtime and the torch wheels agree. Python is **3.11.15** (exact
+patch, pinned in `.python-version`), provided by `uv` (managed) rather than the base image's
+default. (Earlier drafts referred to an "official PyTorch CUDA index" and a CUDA 12.4 base;
 both were incorrect — torch here comes from PyPI, and the base is now CUDA 13.0 to match.)
 
 **Host requirement (generic):** a CUDA GPU with ≥16 GB VRAM and an NVIDIA driver that supports
@@ -55,11 +60,11 @@ The CUDA image targets linux/amd64; on Apple Silicon build with `--platform linu
 # CPU: import + provenance-schema + numerical-smoke + canary leak-scan
 docker run --rm neural-repr:cpu neural-repr-verify check-image
 
-# CUDA build-time (no GPU needed): assert the declared torch/CUDA stack
-docker run --rm neural-repr:cuda neural-repr-verify check-image --expect-torch 2.13 --expect-cuda 13.0
+# CUDA build-time (no GPU needed): assert the declared python/torch/CUDA stack
+docker run --rm neural-repr:cuda neural-repr-verify check-image --expect-python 3.11.15 --expect-torch 2.13 --expect-cuda 13.0
 
 # CUDA runtime (requires a GPU host): fails if CUDA is unavailable; runs a real GPU op
-docker run --rm --gpus all neural-repr:cuda neural-repr-verify check-image --require-cuda --expect-torch 2.13 --expect-cuda 13.0
+docker run --rm --gpus all neural-repr:cuda neural-repr-verify check-image --require-cuda --expect-python 3.11.15 --expect-torch 2.13 --expect-cuda 13.0
 ```
 
 The CUDA **runtime** self-check needs a GPU-capable runner; until one is wired up it is

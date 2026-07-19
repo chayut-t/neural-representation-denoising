@@ -12,7 +12,9 @@ in a revised dissertation from documented public data and versioned code.
 ## Current state
 
 **Phases 0, 1, and 2 are complete (Gates P0–P2 passed and independently verified). Phase 3
-(formalize + test the mathematics before training) is next.**
+(formalize + test the mathematics before training) is next.** Gate P2 covers the CUDA image's
+*build-time* checks; the *runtime* GPU self-check is a blocking Gate P13 criterion (decision
+0009), not a P2 pending item.
 
 - `MODERNIZATION_AND_REPRODUCIBILITY_PLAN.md` — the detailed execution spec (14 phases).
 - `legacy/dissertation-2016/` (tag `archive/dissertation-2016`) and `legacy/rewrite-2026/`

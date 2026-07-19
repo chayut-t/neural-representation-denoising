@@ -35,6 +35,10 @@ def _clone_repo(tmp: Path) -> None:
         REPO_ROOT / "legacy" / "rewrite-2026" / "source", tmp / "legacy" / "rewrite-2026" / "source"
     )
     shutil.copy2(
+        REPO_ROOT / "legacy" / "rewrite-2026" / "MANIFEST.sha256",
+        tmp / "legacy" / "rewrite-2026" / "MANIFEST.sha256",
+    )
+    shutil.copy2(
         REPO_ROOT / "docs" / "rewrite-2026-inventory.csv",
         tmp / "docs" / "rewrite-2026-inventory.csv",
     )
@@ -43,6 +47,7 @@ def _clone_repo(tmp: Path) -> None:
 def _point_checker_at(mod, tmp: Path) -> None:
     mod.REPO_ROOT = tmp
     mod.SRC_2026 = tmp / "legacy" / "rewrite-2026" / "source"
+    mod.MANIFEST_2026 = tmp / "legacy" / "rewrite-2026" / "MANIFEST.sha256"
     mod.INVENTORY = tmp / "docs" / "rewrite-2026-inventory.csv"
     mod.DISS = tmp / "dissertation"
     mod.FILE_MAP = tmp / "dissertation" / "FILE_MAP.csv"
@@ -75,6 +80,28 @@ def test_clean_clone_passes(repo) -> None:
     _tmp, mod = repo
     assert mod.check_file_map() == []
     assert mod.check_inventory_covers_labels() == []
+    assert mod.check_manifest_sources_are_mapped() == []
+
+
+def test_delete_target_and_row_together_detected(repo) -> None:
+    """A2: deleting a derived file AND its FILE_MAP row is caught via the frozen manifest.
+
+    check_file_map() alone cannot see this (both the file and its row are gone, so the
+    tree-derived expected set no longer lists it), but the manifest still cites chap1.tex.
+    """
+    tmp, mod = repo
+    # Remove the derived target file...
+    (tmp / "dissertation" / "chapters" / "chap1.tex").unlink()
+    # ...and its FILE_MAP row.
+    fields, rows = _read_map(tmp)
+    rows = [r for r in rows if r["dissertation_file"] != "chapters/chap1.tex"]
+    _write_map(tmp, fields, rows)
+
+    # The tree-derived check is now blind to the loss...
+    assert mod.check_file_map() == []
+    # ...but the manifest-anchored check catches it.
+    problems = mod.check_manifest_sources_are_mapped()
+    assert any("chap1.tex" in p for p in problems)
 
 
 def test_removed_row_detected(repo) -> None:

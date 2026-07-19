@@ -12,7 +12,6 @@ import re
 
 # (name, compiled regex). Generic patterns only.
 PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("cloud-account-id", re.compile(r"\b\d{12}\b\.dkr\.ecr\.")),
     ("ecr-registry", re.compile(r"\d+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com")),
     ("codeartifact-url", re.compile(r"[a-z0-9-]+\.d\.codeartifact\.[a-z0-9-]+\.amazonaws\.com")),
     ("internal-domain", re.compile(r"https?://[a-z0-9.-]+\.(?:internal|corp|a2z\.com)\b")),
@@ -20,6 +19,12 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("abs-scratch-path", re.compile(r"/scratch/[a-z][a-z0-9_-]+")),
     ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("bearer-token", re.compile(r"(?i)\b(?:authorization|bearer)\b\s*[:=]\s*[A-Za-z0-9._-]{20,}")),
+    # Bounded 12-digit account-ID rules. We do NOT flag any bare 12-digit number
+    # (too many false positives — timestamps, ids); only the two forms that
+    # unambiguously carry an AWS account id: an ARN account field and an explicit
+    # account-id assignment.
+    ("aws-arn-account", re.compile(r"arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:\d{12}:")),
+    ("account-id-assignment", re.compile(r"(?i)\baccount[_-]?id\b\s*[:=]\s*[\"']?\d{12}\b")),
 ]
 
 # Synthetic canaries (FAKE values) the patterns must catch — used by the
@@ -34,6 +39,8 @@ CANARIES: tuple[str, ...] = (
     "/scratch/someuser/run",
     "AKIAAAAAAAAAAAAAAAAA",
     "Authorization: abcdefghijklmnopqrstuvwxyz123456",
+    "arn:aws:iam::000000000000:role/example",
+    "account_id = 000000000000",
 )
 
 

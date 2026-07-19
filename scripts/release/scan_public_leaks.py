@@ -8,10 +8,15 @@ config outside this repo (control 3). The primary guarantee is the structured
 allow-list on committed manifests/configs (control 1).
 
 Generic patterns flagged:
-- 12-digit cloud account IDs;
 - private/internal registry or package-index URLs (ecr, codeartifact, .internal, .corp);
+- 12-digit AWS account IDs, but ONLY in unambiguous forms — an ARN account field or
+  an explicit ``account_id = <12 digits>`` assignment (a bare 12-digit number is not
+  flagged, to avoid false positives on timestamps/ids);
 - absolute home/scratch paths (/Users/<name>, /home/<name>, /scratch/<name>);
 - obvious credential assignments (AWS keys, bearer/authorization tokens).
+
+Additionally, the git-ignored private operator note (``docs/infrastructure.local.md``
+and any ``*.local.md``) must never be tracked; if it is, the scan fails unconditionally.
 
 Exit non-zero if any tracked file matches. Run: python scripts/release/scan_public_leaks.py
 """
@@ -56,16 +61,20 @@ _BINARY_SUFFIXES = {
     ".otf",
 }
 
-# EXACT tracked paths that are exempt as whole files: the scanner and its shared
-# pattern module (they must contain the patterns), and the git-ignored operator
-# note (guard against accidental tracking).
-_SKIP_EXACT_PATHS = frozenset(
-    {
-        "scripts/release/scan_public_leaks.py",
-        "src/neural_repr/provenance/leak_patterns.py",
-        "docs/infrastructure.local.md",
-    }
-)
+# EXACT tracked path exempt as a whole file: only the scanner itself, whose source
+# necessarily contains the pattern regexes (they are not real identifiers). The
+# shared pattern module (`leak_patterns.py`) is now scanned like any other file —
+# its example values are all in CANARIES and stripped line-by-line, so a *new*
+# non-canary internal URL added there is still reported.
+_SKIP_EXACT_PATHS = frozenset({"scripts/release/scan_public_leaks.py"})
+
+# The private operator note is git-ignored (via .git/info/exclude). If it is ever
+# tracked, that is itself the leak — fail unconditionally rather than scanning
+# content, since skipping it would guarantee its identifiers go unreported.
+_MUST_NOT_BE_TRACKED = frozenset({"docs/infrastructure.local.md"})
+# Any file matching these name patterns must not be tracked either (defense in depth
+# for the `*.local.md` git-ignore convention).
+_FORBIDDEN_TRACKED_SUFFIXES = (".local.md",)
 
 
 def _tracked_files() -> list[Path]:
@@ -90,6 +99,10 @@ def scan() -> list[str]:
     findings: list[str] = []
     for path in _tracked_files():
         rel = path.relative_to(REPO_ROOT).as_posix()
+        # A tracked private-operator note is itself the leak: fail without scanning.
+        if rel in _MUST_NOT_BE_TRACKED or rel.endswith(_FORBIDDEN_TRACKED_SUFFIXES):
+            findings.append(f"{rel}:0: [tracked-private-note] this file must never be tracked")
+            continue
         if rel in _SKIP_EXACT_PATHS:
             continue
         if path.suffix.lower() in _BINARY_SUFFIXES:

@@ -95,6 +95,11 @@ def check_image(
         "--expect-cuda",
         help="Assert torch.version.cuda starts with this value (e.g. '13.0').",
     ),
+    expect_python: str | None = typer.Option(
+        None,
+        "--expect-python",
+        help="Assert the running interpreter is exactly this version (e.g. '3.11.15').",
+    ),
 ) -> None:
     """Self-check for the public reference container (Gate P2 image checks).
 
@@ -104,6 +109,8 @@ def check_image(
     torch/CUDA version assertion, and the synthetic-canary leak-scan self-test.
     Exits non-zero on any failure so it can gate the built public image in CI.
     """
+    import platform
+
     import torch
 
     import neural_repr  # import check
@@ -112,6 +119,16 @@ def check_image(
 
     record = collect_execution_environment(install_mode="public-reference-container").to_record()
     validate_execution_record(record)  # provenance-schema check (raises on violation)
+
+    # Python version assertion (A3): the reference interpreter is pinned to an exact
+    # patch in .python-version; confirm the running one matches exactly.
+    running_python = platform.python_version()
+    if expect_python is not None and running_python != expect_python:
+        typer.echo(
+            f"python version mismatch: got {running_python}, expected exactly {expect_python}",
+            err=True,
+        )
+        raise typer.Exit(1)
 
     # Version assertions (P1.1): confirm the running stack matches the declared one.
     if expect_torch is not None and not torch.__version__.startswith(expect_torch):
@@ -146,9 +163,9 @@ def check_image(
         raise typer.Exit(1)
 
     typer.echo(
-        f"check-image OK: neural_repr {neural_repr.__version__}; torch {torch.__version__} "
-        f"(cuda {torch_cuda}); provenance-schema valid; numerical-smoke {smoke['fingerprint']} "
-        f"on {smoke['device']}; canary-scan armed"
+        f"check-image OK: neural_repr {neural_repr.__version__}; python {running_python}; "
+        f"torch {torch.__version__} (cuda {torch_cuda}); provenance-schema valid; "
+        f"numerical-smoke {smoke['fingerprint']} on {smoke['device']}; canary-scan armed"
     )
 
 

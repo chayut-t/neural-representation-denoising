@@ -4,10 +4,15 @@
 Checks:
 1. Inventory coverage — every figure/table label in the frozen 2026 source has a row in
    docs/rewrite-2026-inventory.csv (nothing dropped in the lineage).
-2. FILE_MAP completeness — the set of dissertation files DERIVED from the 2026 baseline is
+2. Manifest-source coverage — anchored on the IMMUTABLE frozen-2026 MANIFEST.sha256: every
+   required content source (chapters/abstract/appendix/bib/thesis driver) must be cited by at
+   least one FILE_MAP row. Because the manifest cannot change, deleting a derived target AND its
+   FILE_MAP row together is detected here (the tree-derived expected set in check 3 cannot see
+   that case — both the file and its row are gone).
+3. FILE_MAP completeness — the set of dissertation files DERIVED from the 2026 baseline is
    defined by rule; FILE_MAP must contain exactly one valid row per such file (no missing rows
    — so a deletion is detected — no duplicates, no rows for unexpected targets).
-3. Per-row validity, for every derivation type:
+4. Per-row validity, for every derivation type:
    - derivation is a known value;
    - the 2026 source exists and its hash matches source_sha256;
    - current_sha256 matches the dissertation file's actual current hash (so unrecorded edits
@@ -27,12 +32,31 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_2026 = REPO_ROOT / "legacy" / "rewrite-2026" / "source"
+MANIFEST_2026 = REPO_ROOT / "legacy" / "rewrite-2026" / "MANIFEST.sha256"
 INVENTORY = REPO_ROOT / "docs" / "rewrite-2026-inventory.csv"
 DISS = REPO_ROOT / "dissertation"
 FILE_MAP = DISS / "FILE_MAP.csv"
 
 _LABEL_RE = re.compile(r"\\label\{((?:fig|tab):[^}]+)\}")
 _VALID_DERIVATIONS = {"byte-identical-copy", "translated-from"}
+
+# Content source files (in the frozen 2026 MANIFEST) that MUST be represented in the
+# working edition. Anchored on the immutable manifest — NOT the mutable dissertation
+# tree — so deleting a target file *and* its FILE_MAP row together is still detected.
+# Excludes build scripts (doit.sh, .gitignore), figures (images/), and the built PDF.
+_REQUIRED_SOURCE_BASENAMES = frozenset(
+    {
+        "abstract.tex",
+        "appendix.tex",
+        "chap1.tex",
+        "chap2.tex",
+        "chap3.tex",
+        "chap4.tex",
+        "chap5.tex",
+        "references.bib",
+        "thesis.tex",
+    }
+)
 _EXPECTED_COLUMNS = [
     "dissertation_file",
     "derivation",
@@ -66,6 +90,52 @@ def expected_derived_files() -> set[str]:
     for bib in (DISS / "bibliography").glob("*.bib"):
         files.add(bib.relative_to(DISS).as_posix())
     return files
+
+
+def _manifest_source_files() -> set[str]:
+    """Basenames of ``source/*`` entries in the immutable frozen-2026 manifest."""
+    names: set[str] = set()
+    for line in MANIFEST_2026.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        _, _, rel = line.partition("  ")
+        rel = rel.strip()
+        if rel.startswith("source/") and "/images/" not in rel:
+            names.add(Path(rel).name)
+    return names
+
+
+def _file_map_cited_sources() -> set[str]:
+    """Set of ``source_2026_file`` basenames cited by any FILE_MAP row."""
+    with FILE_MAP.open(encoding="utf-8") as fh:
+        return {Path(row["source_2026_file"]).name for row in csv.DictReader(fh)}
+
+
+def check_manifest_sources_are_mapped() -> list[str]:
+    """Every required content source in the frozen manifest must be cited by FILE_MAP.
+
+    This is the immutable-source-of-truth direction (independent of the current
+    dissertation/ tree): if a derived target and its FILE_MAP row are BOTH deleted,
+    the source it derived from is no longer cited here, so this check fails — closing
+    the delete-both gap that a tree-derived expected-set cannot see.
+    """
+    problems: list[str] = []
+    manifest_names = _manifest_source_files()
+    missing_required = _REQUIRED_SOURCE_BASENAMES - manifest_names
+    if missing_required:
+        problems.append(
+            f"frozen manifest is missing expected source files: {sorted(missing_required)} "
+            "(manifest drift — the baseline itself changed)"
+        )
+    cited = _file_map_cited_sources()
+    for src in sorted(_REQUIRED_SOURCE_BASENAMES & manifest_names):
+        if src not in cited:
+            problems.append(
+                f"frozen-2026 source {src} is not cited by any FILE_MAP row "
+                "(a derived file and its lineage row were dropped together)"
+            )
+    return problems
 
 
 def check_inventory_covers_labels() -> list[str]:
@@ -138,14 +208,17 @@ def check_file_map() -> list[str]:
 
 
 def main() -> int:
-    problems = check_inventory_covers_labels() + check_file_map()
+    problems = (
+        check_inventory_covers_labels() + check_manifest_sources_are_mapped() + check_file_map()
+    )
     if problems:
         print("Lineage check FAILED:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
     print(
-        "[check-lineage] inventory covers all 2026 figures/tables; FILE_MAP complete + consistent."
+        "[check-lineage] inventory covers all 2026 figures/tables; every frozen-manifest "
+        "source is mapped; FILE_MAP complete + consistent."
     )
     return 0
 
