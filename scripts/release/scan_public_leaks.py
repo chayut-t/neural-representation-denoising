@@ -27,35 +27,44 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Patterns live in the package so the container self-check shares one source of
 # truth with this repo scanner (plan §2.4). Import from src/ without installing.
 sys.path.insert(0, str(REPO_ROOT / "src"))
-from neural_repr.provenance.leak_patterns import PATTERNS  # noqa: E402
+from neural_repr.provenance.leak_patterns import CANARIES, PATTERNS  # noqa: E402
 
-# Extensions treated as scannable text; binaries/data are skipped.
-TEXT_SUFFIXES = {
-    ".py",
-    ".md",
-    ".txt",
-    ".toml",
-    ".cfg",
-    ".ini",
-    ".yaml",
-    ".yml",
-    ".json",
-    ".csv",
-    ".tex",
-    ".bib",
-    ".sh",
-    ".cff",
-    "",
+# We scan every tracked file that decodes as UTF-8 text (so repository-specific
+# names like Dockerfile.cpu / Dockerfile.cuda are covered), skipping only files
+# whose suffix marks them as binary/data assets.
+_BINARY_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".pdf",
+    ".psd",
+    ".ico",
+    ".zip",
+    ".gz",
+    ".tar",
+    ".whl",
+    ".parquet",
+    ".npy",
+    ".npz",
+    ".pt",
+    ".pth",
+    ".ckpt",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
 }
 
-# Paths never scanned: the git-ignored operator note is not tracked anyway, but
-# guard against accidental inclusion; the pattern/canary definitions and the
-# canary test (which contain SYNTHETIC identifiers by design) are allowed.
-SKIP_SUBSTRINGS = (
-    "infrastructure.local",
-    "scripts/release/scan_public_leaks.py",
-    "src/neural_repr/provenance/leak_patterns.py",
-    "tests/regression/test_leak_scanner.py",
+# EXACT tracked paths that are exempt as whole files: the scanner and its shared
+# pattern module (they must contain the patterns), and the git-ignored operator
+# note (guard against accidental tracking).
+_SKIP_EXACT_PATHS = frozenset(
+    {
+        "scripts/release/scan_public_leaks.py",
+        "src/neural_repr/provenance/leak_patterns.py",
+        "docs/infrastructure.local.md",
+    }
 )
 
 
@@ -66,21 +75,33 @@ def _tracked_files() -> list[Path]:
     return [REPO_ROOT / line for line in out.stdout.splitlines() if line]
 
 
+def _strip_canaries(line: str) -> str:
+    """Remove all known synthetic-canary substrings from a line.
+
+    A canary-only line becomes clean; a line that ALSO contains a real identifier
+    still trips the patterns after stripping. This is the narrow, line-level
+    exemption the review asked for (not a whole-file skip)."""
+    for canary in CANARIES:
+        line = line.replace(canary, "")
+    return line
+
+
 def scan() -> list[str]:
     findings: list[str] = []
     for path in _tracked_files():
         rel = path.relative_to(REPO_ROOT).as_posix()
-        if any(s in rel for s in SKIP_SUBSTRINGS):
+        if rel in _SKIP_EXACT_PATHS:
             continue
-        if path.suffix.lower() not in TEXT_SUFFIXES:
+        if path.suffix.lower() in _BINARY_SUFFIXES:
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, FileNotFoundError):
-            continue
+            continue  # undecodable => treat as binary
         for lineno, line in enumerate(text.splitlines(), 1):
+            probe = _strip_canaries(line)  # canary substrings removed; real leaks remain
             for name, pat in PATTERNS:
-                if pat.search(line):
+                if pat.search(probe):
                     findings.append(f"{rel}:{lineno}: [{name}] {line.strip()[:120]}")
     return findings
 

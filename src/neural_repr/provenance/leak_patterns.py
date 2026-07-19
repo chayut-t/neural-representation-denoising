@@ -23,7 +23,9 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 # Synthetic canaries (FAKE values) the patterns must catch — used by the
-# container self-check to prove the scanner is wired and working.
+# container self-check to prove the scanner is wired and working, and by the repo
+# scanner to exempt these exact synthetic substrings line-by-line (so a canary line
+# is clean but a real identifier on the same line still trips).
 CANARIES: tuple[str, ...] = (
     "000000000000.dkr.ecr.us-west-1.amazonaws.com/example:tag",
     "fakedomain-000000000000.d.codeartifact.us-west-1.amazonaws.com/pypi/x/simple/",
@@ -31,6 +33,7 @@ CANARIES: tuple[str, ...] = (
     "/Users/someuser/project/file",
     "/scratch/someuser/run",
     "AKIAAAAAAAAAAAAAAAAA",
+    "Authorization: abcdefghijklmnopqrstuvwxyz123456",
 )
 
 
