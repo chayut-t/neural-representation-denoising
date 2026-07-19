@@ -13,8 +13,10 @@ The goal is a public repository that regenerates every quantitative result, tabl
 in a revised dissertation from documented public data and versioned code. See
 `MODERNIZATION_AND_REPRODUCIBILITY_PLAN.md` for the governing, phase-gated spec.
 
-> **Status:** early scaffolding (Phase 2). No experiments have been run yet. Commands below
-> are the intended stable interface; most subcommands are placeholders until later phases.
+> **Status:** Phases 0–2 complete (repository scaffolding, locked environment, public
+> containers, working dissertation build, and CI are in place). Phase 3 (formalize + test the
+> mathematics) is next. No experiments have been run yet; the study subcommands are
+> placeholders that exit non-zero until their phase implements them.
 
 ## Quick start (developer)
 

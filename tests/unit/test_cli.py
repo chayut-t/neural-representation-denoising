@@ -35,3 +35,22 @@ def test_system_info_emits_fingerprint() -> None:
     result = runner.invoke(verify.app, ["system-info", "--install-mode", "local"])
     assert result.exit_code == 0
     assert "execution_environment_fingerprint" in result.output
+
+
+# Invoked placeholder operations must FAIL (non-zero), so automation cannot mistake
+# a not-yet-implemented command for a completed run (codex P2).
+_PLACEHOLDER_INVOCATIONS = [
+    ("neural_repr.cli.data", ["download", "div2k"]),
+    ("neural_repr.cli.data", ["check"]),
+    ("neural_repr.cli.train", ["run", "sparse/toy"]),
+    ("neural_repr.cli.eval", ["run", "some-run-id"]),
+    ("neural_repr.cli.aggregate", ["run", "some-manifest"]),
+    ("neural_repr.cli.figure", ["make", "ch3-basis-atlas"]),
+]
+
+
+@pytest.mark.parametrize(("module_name", "args"), _PLACEHOLDER_INVOCATIONS)
+def test_placeholder_operations_fail(module_name: str, args: list[str]) -> None:
+    module = importlib.import_module(module_name)
+    result = runner.invoke(module.app, args)
+    assert result.exit_code != 0, f"{module_name} {args} should fail, not report false success"

@@ -11,16 +11,25 @@ in a revised dissertation from documented public data and versioned code.
 
 ## Current state
 
-- `MODERNIZATION_AND_REPRODUCIBILITY_PLAN.md` — the detailed execution spec (14 phases).
-- `legacy/dissertation-2016/` — preserved original LaTeX sources, PDFs, figures (archived,
-  tagged `archive/dissertation-2016`).
-- `legacy/rewrite-2026/` — a self-contained 2026 narrative rewrite (58-page PDF + sources).
-  This is the narrative/structure baseline the modern edition builds from.
-- `docs/result-inventory.csv` — inventory of historical results.
+**Phases 0, 1, and 2 are complete (Gates P0–P2 passed and independently verified). Phase 3
+(formalize + test the mathematics before training) is next.**
 
-No modern Python package, `Makefile`, configs, tests, or CI exist yet. Phase 0 (preserve
-2016 work) is done; Phase 1 (freeze scope + inventory the 2026 rewrite) is next. Don't
-assume any command or module from the plan is present — verify first.
+- `MODERNIZATION_AND_REPRODUCIBILITY_PLAN.md` — the detailed execution spec (14 phases).
+- `legacy/dissertation-2016/` (tag `archive/dissertation-2016`) and `legacy/rewrite-2026/`
+  (tag `archive/rewrite-2026-baseline`) — immutable archives with `MANIFEST.sha256` each.
+  The 2026 rewrite is the narrative/structure baseline the modern edition builds from.
+- `docs/` — plan artifacts: `result-inventory.csv`, `rewrite-2026-inventory.csv`,
+  `baseline-audit-2026.md`, `claim-evidence-matrix.md`, `tolerances.md`, `decisions/`.
+- `src/neural_repr/` — the Python package (Python 3.11, committed `uv.lock`) with six Typer
+  CLIs (`neural-repr-{data,train,eval,aggregate,figure,verify}`). Only `verify` does real
+  work so far; the other commands are placeholders that **exit non-zero** until their phase.
+- `dissertation/` — the working LuaLaTeX edition, derived from the frozen 2026 source
+  (`FILE_MAP.csv` records source-hash lineage); builds via `scripts/release/build_dissertation.py`.
+- `containers/` — public digest-pinned CPU/CUDA reference images. `.github/workflows/` — CI
+  (lint/type/test, baseline-hash, lineage, layered leak prevention, LaTeX build).
+
+No experiment/science code or reproduced results exist yet. Don't assume a module or command
+beyond the above is present — verify first.
 
 ## The two scientific studies
 
@@ -54,11 +63,19 @@ CPU-only work (quick reproduction, tests, preprocessing, figures) runs locally.
 
 ## Commands
 
-Legacy 2016 build (the only runnable build today), from `legacy/dissertation-2016/source/`:
+Developer workflow (requires `uv`; Python 3.11 is provisioned by uv):
 
 ```sh
-sh doit.sh          # pdflatex thesis && biber thesis && pdflatex thesis
+uv sync --locked --extra image           # install the locked CPU/dev environment
+uv run pytest -q                         # tests
+uv run ruff check src tests scripts && uv run mypy   # lint + types
+uv run neural-repr-verify system-info    # sanitized environment record (§6.1)
+uv run python scripts/release/verify_baselines.py    # both legacy manifests must match
+uv run python scripts/release/scan_public_leaks.py   # infrastructure-leak scan
+uv run python scripts/release/check_lineage.py       # 2026 -> dissertation lineage
+uv run python scripts/release/build_dissertation.py  # non-overwriting PDF build -> builds/dissertation/<id>/
 ```
 
-Everything else (`make bootstrap`, `make test`, `make reproduce-*`, `make dissertation`) is
-planned, not yet built. See the plan for the target interface.
+The `make` targets (`make bootstrap`, `make test`, `make reproduce-*`, `make dissertation`) are
+the eventual stable interface and are not built yet. The legacy 2016 build still works from
+`legacy/dissertation-2016/source/` via `sh doit.sh` (pdflatex + biber; historical only).

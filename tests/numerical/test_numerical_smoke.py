@@ -26,6 +26,30 @@ def test_numerical_smoke_repeatable_same_seed() -> None:
     assert a["value"] == b["value"]
 
 
+def test_numerical_smoke_matches_committed_reference() -> None:
+    """Compare the CPU result to a committed reference value within tolerance.
+
+    This is the frozen tiny regression oracle (tol-regression-tiny; decision 0005):
+    unlike the self-comparison above, it detects drift *between commits/platforms*.
+    Same platform reproduces the fingerprint exactly; other platforms must match
+    the value within the documented relative tolerance (plan §2.4 boundary).
+    """
+    import json
+    from pathlib import Path
+
+    ref = json.loads(
+        (
+            Path(__file__).resolve().parents[1] / "regression" / "numerical_smoke_reference.json"
+        ).read_text()
+    )
+    result = numerical_smoke(seed=ref["seed"], device=ref["device"])
+    rel = abs(result["value"] - ref["value"]) / abs(ref["value"])
+    assert rel <= ref["relative_tolerance"], (
+        f"numerical smoke {result['value']} drifted from reference {ref['value']} "
+        f"(relative {rel:.2e} > {ref['relative_tolerance']:.0e})"
+    )
+
+
 def test_numerical_smoke_varies_with_seed() -> None:
     a = numerical_smoke(seed=0)
     b = numerical_smoke(seed=1)

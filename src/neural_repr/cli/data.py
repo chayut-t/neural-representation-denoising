@@ -36,8 +36,11 @@ def check() -> None:
 
 
 def _not_yet(what: str, *, phase: int) -> int:
-    typer.echo(f"[neural-repr-data] '{what}' is not implemented yet (planned: Phase {phase}).")
-    return 0
+    # Return non-zero: an invoked operation that did no work must fail (codex P2).
+    typer.echo(
+        f"[neural-repr-data] '{what}' is not implemented yet (planned: Phase {phase}).", err=True
+    )
+    return 1
 
 
 def main() -> None:

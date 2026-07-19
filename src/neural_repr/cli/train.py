@@ -28,8 +28,12 @@ def run(
 
 
 def _not_yet(what: str, *, phase: object) -> int:
-    typer.echo(f"[neural-repr-train] '{what}' is not implemented yet (planned: Phase {phase}).")
-    return 0
+    # Return non-zero: an invoked operation that did no work must fail so
+    # automation cannot mistake a placeholder for a completed run (codex P2).
+    typer.echo(
+        f"[neural-repr-train] '{what}' is not implemented yet (planned: Phase {phase}).", err=True
+    )
+    return 1
 
 
 def main() -> None:

@@ -1,0 +1,12 @@
+{
+  "description": "Frozen reference for the tiny numerical-smoke oracle (tol-regression-tiny; plan §6.3, decision 0005). Captured on the CPU reference platform.",
+  "seed": 0,
+  "device": "cpu",
+  "value": 4066.733107,
+  "reference_platform": {
+    "torch_version": "2.13.0",
+    "note": "captured on macOS arm64 + torch 2.13.0 CPU; CI Linux uses the same locked torch."
+  },
+  "relative_tolerance": 1e-3,
+  "policy": "Same platform/process must reproduce the fingerprint exactly; other platforms must match `value` within `relative_tolerance` (documented cross-platform boundary, plan §2.4). Tighten once a single reference platform is fixed for the confirmatory freeze."
+}

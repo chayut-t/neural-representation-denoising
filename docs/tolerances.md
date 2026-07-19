@@ -12,7 +12,7 @@ artifact, and cross-environment tolerances are committed here.
 | id | scope | metric / comparison | value | status | owner | due (phase) |
 |---|---|---|---|---|---|---|
 | tol-env-bootstrap | environment | `uv sync --locked` resolves to the locked set; `system-info` schema validates | exact match | committed | maintainer | Phase 2 |
-| tol-regression-tiny | regression | tiny fixed-seed CPU smoke outputs vs frozen references | TBD (abs/rel) | pending | maintainer | Phase 2 |
+| tol-regression-tiny | regression | tiny fixed-seed CPU smoke output vs committed reference (`tests/regression/numerical_smoke_reference.json`) | value 4066.733107, rel 1e-3 (same platform: exact fingerprint) | committed | maintainer | Phase 2 |
 | tol-gradient-fd | numerical | analytic vs finite-difference gradients (sparse + recurrent) | TBD (rel) | pending | maintainer | Phases 3–5 |
 | tol-solver-convergence | numerical | sparse-inference objective vs trusted convex reference | TBD (rel) | pending | maintainer | Phases 3–5 |
 | tol-faithful-reimpl | faithful | legacy-compatible reimplementation vs documented historical behavior | TBD | pending | maintainer | Phases 3–5 |
