@@ -74,25 +74,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.29"
       - name: Install TeX Live (LuaLaTeX, latexmk, biber)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             texlive-luatex texlive-latex-extra texlive-fonts-recommended \
             texlive-bibtex-extra biber latexmk
-      - name: Build the working dissertation edition
-        working-directory: dissertation
-        run: latexmk -r latexmkrc main.tex
+      - name: Build via the canonical non-overwriting build command
+        # Writes to builds/dissertation/<build-id>/; leaves dissertation/ clean.
+        run: uv run --no-project python scripts/release/build_dissertation.py --build-id "ci-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Fail on undefined references or citations
-        working-directory: dissertation
         run: |
-          if grep -qiE 'undefined (reference|citation)|multiply.defined' main.log; then
+          LOG="builds/dissertation/ci-${{ github.run_id }}-${{ github.run_attempt }}/main.log"
+          if grep -qiE 'undefined (reference|citation)|multiply.defined' "$LOG"; then
             echo "Undefined references/citations or duplicate labels found:"
-            grep -iE 'undefined (reference|citation)|multiply.defined' main.log
+            grep -iE 'undefined (reference|citation)|multiply.defined' "$LOG"
             exit 1
           fi
-      - name: Upload built PDF
+      - name: Assert dissertation/ left clean (no build products)
+        run: |
+          if ls dissertation/main.pdf dissertation/main.aux 2>/dev/null; then
+            echo "build products leaked into dissertation/"; exit 1
+          fi
+          echo "dissertation/ is clean"
+      - name: Upload built PDF from the build directory
         uses: actions/upload-artifact@v4
         with:
           name: dissertation-pdf
-          path: dissertation/main.pdf
+          path: builds/dissertation/ci-${{ github.run_id }}-${{ github.run_attempt }}/main.pdf
