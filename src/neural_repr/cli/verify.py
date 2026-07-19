@@ -50,18 +50,28 @@ def system_info(
         "--reference-digest",
         help="Digest of the publicly pullable reference container, if running under it.",
     ),
+    compat_status: str = typer.Option(
+        "unknown",
+        "--compat-status",
+        help="reference_compatibility_status category: public-reference-run | "
+        "equivalence-verified | pending-equivalence | unknown.",
+    ),
 ) -> None:
     """Print/write the sanitized execution-environment record (§2.4 layer 1, §6.1).
 
-    Contains only vendor-neutral scientific provenance and an opaque
-    fingerprint; never hostnames, registries, paths, or account IDs.
+    Contains only vendor-neutral scientific provenance and an opaque fingerprint;
+    never hostnames, registries, paths, or account IDs. The emitted record is
+    validated against the closed schema before output.
     """
     env = collect_execution_environment(
         determinism_mode=determinism_mode,
         install_mode=install_mode,
+        reference_compatibility_status=compat_status,
         public_reference_environment_digest=reference_digest,
     )
-    payload = json.dumps(env.to_record(), indent=2, default=str, sort_keys=True)
+    record = env.to_record()
+    validate_execution_record(record)  # never emit a non-schema-valid record
+    payload = json.dumps(record, indent=2, default=str, sort_keys=True)
     if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(payload + "\n", encoding="utf-8")
@@ -71,14 +81,31 @@ def system_info(
 
 
 @app.command("check-image")
-def check_image() -> None:
+def check_image(
+    require_cuda: bool = typer.Option(
+        False,
+        "--require-cuda",
+        help="Fail unless CUDA is available and run the numerical smoke on the GPU.",
+    ),
+    expect_torch: str | None = typer.Option(
+        None, "--expect-torch", help="Assert torch.__version__ starts with this value."
+    ),
+    expect_cuda: str | None = typer.Option(
+        None,
+        "--expect-cuda",
+        help="Assert torch.version.cuda starts with this value (e.g. '13.0').",
+    ),
+) -> None:
     """Self-check for the public reference container (Gate P2 image checks).
 
     Runs, inside whatever environment invokes it: package import, a
-    provenance-schema validation of the ``system-info`` record, and a
-    deterministic numerical smoke computation. Exits non-zero on any failure so
-    it can gate the built public image in CI.
+    provenance-schema validation of the ``system-info`` record, a deterministic
+    numerical smoke computation (on GPU when ``--require-cuda``), an optional
+    torch/CUDA version assertion, and the synthetic-canary leak-scan self-test.
+    Exits non-zero on any failure so it can gate the built public image in CI.
     """
+    import torch
+
     import neural_repr  # import check
     from neural_repr.common import numerical_smoke
     from neural_repr.provenance.leak_patterns import canaries_all_detected
@@ -86,10 +113,32 @@ def check_image() -> None:
     record = collect_execution_environment(install_mode="public-reference-container").to_record()
     validate_execution_record(record)  # provenance-schema check (raises on violation)
 
-    smoke = numerical_smoke(seed=0)
-    repeat = numerical_smoke(seed=0)
+    # Version assertions (P1.1): confirm the running stack matches the declared one.
+    if expect_torch is not None and not torch.__version__.startswith(expect_torch):
+        typer.echo(
+            f"torch version mismatch: got {torch.__version__}, expected {expect_torch}*", err=True
+        )
+        raise typer.Exit(1)
+    torch_cuda = getattr(torch.version, "cuda", None)
+    if expect_cuda is not None and (torch_cuda is None or not torch_cuda.startswith(expect_cuda)):
+        typer.echo(f"torch CUDA mismatch: got {torch_cuda}, expected {expect_cuda}*", err=True)
+        raise typer.Exit(1)
+
+    # CUDA runtime check (P1.2): a --require-cuda run must actually exercise the GPU.
+    device = "cpu"
+    if require_cuda:
+        if not torch.cuda.is_available():
+            typer.echo("--require-cuda set but torch.cuda.is_available() is False", err=True)
+            raise typer.Exit(1)
+        device = "cuda"
+
+    smoke = numerical_smoke(seed=0, device=device)
+    repeat = numerical_smoke(seed=0, device=device)
     if smoke["fingerprint"] != repeat["fingerprint"]:
         typer.echo("numerical smoke is not repeatable within process", err=True)
+        raise typer.Exit(1)
+    if require_cuda and smoke["device"] != "cuda":
+        typer.echo("numerical smoke did not run on CUDA despite --require-cuda", err=True)
         raise typer.Exit(1)
 
     if not canaries_all_detected():
@@ -97,8 +146,9 @@ def check_image() -> None:
         raise typer.Exit(1)
 
     typer.echo(
-        f"check-image OK: neural_repr {neural_repr.__version__}; "
-        f"provenance-schema valid; numerical-smoke {smoke['fingerprint']}; canary-scan armed"
+        f"check-image OK: neural_repr {neural_repr.__version__}; torch {torch.__version__} "
+        f"(cuda {torch_cuda}); provenance-schema valid; numerical-smoke {smoke['fingerprint']} "
+        f"on {smoke['device']}; canary-scan armed"
     )
 
 

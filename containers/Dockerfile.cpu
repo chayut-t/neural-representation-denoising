@@ -10,8 +10,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy
 
-# uv provides the locked environment from the committed uv.lock.
-COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /usr/local/bin/uv
+# uv provides the locked environment from the committed uv.lock. Pinned by DIGEST
+# (not the mutable :0.11.29 tag); refresh with:
+#   TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:astral-sh/uv:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+#   curl -sI -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.oci.image.index.v1+json" \
+#     https://ghcr.io/v2/astral-sh/uv/manifests/0.11.29 | grep -i docker-content-digest
+COPY --from=ghcr.io/astral-sh/uv@sha256:eb2843a1e56fd9e30c7276ce1a52cba86e64c7b385f5e3279a0e08e02dd058fc /uv /usr/local/bin/uv
 
 # Minimal build/runtime deps (git for provenance; build-essential for any sdists).
 RUN apt-get update \

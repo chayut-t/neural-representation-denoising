@@ -28,20 +28,40 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Dockerfile.cuda
         run: docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .
-      # No GPU on the runner: build-only. Numerical GPU smoke runs on the
-      # reference CUDA environment in later phases (Gate P13).
+      - name: Assert declared torch/CUDA stack in the built image (no GPU needed)
+        # Version assertion runs on any runner; it does NOT require a GPU. It fails
+        # if the image's torch/CUDA differs from the committed uv.lock stack.
+        run: docker run --rm neural-repr:cuda neural-repr-verify check-image --expect-torch 2.13 --expect-cuda 13.0
+      # NOTE: the ubuntu-latest runner has no GPU, so the CUDA *runtime* self-check
+      # (check-image --require-cuda) is NOT run here. Per Gate P2 that runtime check
+      # is PENDING until a GPU-capable runner (or the Phase 13 reference environment)
+      # is available; see cuda-runtime-check below.
+
+  cuda-runtime-check:
+    name: CUDA runtime self-check (GPU runner)
+    # Gated on an available GPU runner. Until one exists this job does not run, and
+    # Gate P2 records the CUDA runtime check as PENDING rather than passed.
+    if: ${{ vars.GPU_RUNNER_LABEL != '' }}
+    runs-on: ${{ vars.GPU_RUNNER_LABEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CUDA image
+        run: docker build -f containers/Dockerfile.cuda -t neural-repr:cuda .
+      - name: Require-CUDA self-check (fails if GPU/CUDA unavailable; runs a GPU op)
+        run: docker run --rm --gpus all neural-repr:cuda neural-repr-verify check-image --require-cuda --expect-torch 2.13 --expect-cuda 13.0
 
   base-pullable:
     name: pinned public bases remain pullable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pull pinned base digests referenced by the Dockerfiles
+      - name: Pull pinned base + uv digests referenced by the Dockerfiles
         run: |
           set -euo pipefail
-          # Extract each pinned FROM digest and confirm it still pulls.
-          grep -hoE '(python|nvidia/cuda)@sha256:[0-9a-f]+' containers/Dockerfile.* | sort -u | while read -r ref; do
+          # Extract each pinned digest (base images AND the uv builder) and confirm it pulls.
+          grep -hoE '(python|nvidia/cuda|ghcr\.io/astral-sh/uv)@sha256:[0-9a-f]+' containers/Dockerfile.* \
+            | sed -E 's#^(ghcr\.io/astral-sh/uv)#\1#' | sort -u | while read -r ref; do
             echo "pulling $ref"
             docker pull "$ref" >/dev/null
           done
-          echo "all pinned bases pullable"
+          echo "all pinned bases + uv builder pullable"

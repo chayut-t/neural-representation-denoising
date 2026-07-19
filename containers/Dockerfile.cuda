@@ -3,33 +3,47 @@
 # generic CUDA hardware (>=16 GB VRAM). It is intentionally independent of any private
 # execution image; runs record only vendor-neutral provenance (see neural_repr.provenance).
 #
-# Base: nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 (Docker Hub, public), linux/amd64.
-# Digest pinned; refresh via:
-#   docker manifest inspect -v nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
-# and take the linux/amd64 Descriptor digest.
-FROM nvidia/cuda@sha256:0bb88834d973ca1b450fcc2a05333c6fe45510bee289912a5391274c351c4a4d
+# CUDA stack MUST match the committed uv.lock, which resolves torch 2.13.0 (from PyPI)
+# bundling CUDA 13.0 runtime wheels (nvidia-cuda-runtime 13.0.x, nvidia-cudnn-cu13). We
+# therefore base on a CUDA 13.0 image so the base runtime and the torch wheels agree.
+#
+# Base: nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04 (Docker Hub, public). Multi-arch
+# manifest-list digest pinned below; refresh with:
+#   TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:nvidia/cuda:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+#   curl -sI -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.oci.image.index.v1+json" \
+#     https://registry-1.docker.io/v2/nvidia/cuda/manifests/13.0.1-cudnn-runtime-ubuntu24.04 | grep -i docker-content-digest
+FROM nvidia/cuda@sha256:6e93a6558a7fc4fbcbf967e5fc2ea9e104df8c2e294dfcfd97fc0be48ab7d75d
+
+# torch 2.13.0 + CUDA 13.0 wheels require an NVIDIA driver supporting CUDA 13 (driver
+# >= 580; see containers/README.md for the authoritative host requirement).
 
 ENV PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy \
+    UV_PYTHON_PREFERENCE=only-managed \
     DEBIAN_FRONTEND=noninteractive
 
-# Python 3.11 + git; uv provides the locked environment.
+# git for provenance; build-essential for any sdists. Python itself is provided by uv
+# (managed 3.11, matching .python-version / uv.lock) rather than apt, so the interpreter
+# is pinned by the lockfile rather than by the base image's default Python.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev python3-pip git build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/local/bin/python3
+    && apt-get install -y --no-install-recommends git build-essential ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /usr/local/bin/uv
+# uv is pinned by DIGEST (not the mutable :0.11.29 tag). Refresh with:
+#   TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:astral-sh/uv:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+#   curl -sI -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.oci.image.index.v1+json" \
+#     https://ghcr.io/v2/astral-sh/uv/manifests/0.11.29 | grep -i docker-content-digest
+COPY --from=ghcr.io/astral-sh/uv@sha256:eb2843a1e56fd9e30c7276ce1a52cba86e64c7b385f5e3279a0e08e02dd058fc /uv /usr/local/bin/uv
 
 WORKDIR /workspace
 
-# The `cuda` extra pulls GPU torch wheels; on the reference container these resolve from
-# the official PyTorch CUDA index. Locked via the committed uv.lock.
-COPY pyproject.toml uv.lock README.md ./
+# The `cuda` extra selects the GPU torch build; versions are pinned end to end by the
+# committed uv.lock (torch 2.13.0 + CUDA 13.0 wheels from PyPI).
+COPY .python-version pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN uv sync --locked --extra cuda --extra image --no-dev
+RUN uv python install 3.11 \
+    && uv sync --locked --extra cuda --extra image --no-dev
 
 ENTRYPOINT ["uv", "run"]
-CMD ["neural-repr-verify", "system-info", "--install-mode", "public-reference-container"]
+# Default self-check requires CUDA and exercises a real GPU op (fails on a CPU-only host).
+CMD ["neural-repr-verify", "check-image", "--require-cuda"]
