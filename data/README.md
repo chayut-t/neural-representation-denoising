@@ -62,8 +62,22 @@ uv run neural-repr-data check synthetic         # validates counts/shapes/modes/
 uv run neural-repr-data audit                    # writes a JSON data-audit report (task 11)
 ```
 
-The fixture is deterministic from `(seed, index, size)`, so it and its manifest are
-byte-identical on any platform.
+The fixture is deterministic from `(seed, index, size)`, so its **pixels** are
+identical on any platform. That pixel identity — not PNG-encoded-byte identity — is
+the reproducibility contract: PNG (zlib) encoding is not byte-identical across
+platforms/library builds even for identical pixels. Accordingly each manifest row
+carries two digests:
+
+- `content_sha256` — a digest over the **decoded pixels** (dtype, shape, raw bytes);
+  platform-stable, and the invariant used for reproducibility, split-leakage, and
+  duplicate detection. Always present.
+- `sha256` — the **file-byte** digest. Only meaningful for files whose exact bytes we
+  received and keep (downloaded third-party archives/images), so it is **empty** for
+  the regenerable synthetic fixture and populated for real datasets. When present it is
+  verified on `check --root`; when empty it is skipped.
+
+Third-party archive and per-file byte hashes remain full byte-integrity checks — this
+split only relaxes the *synthetic-fixture* contract, never the downloaded-data ones.
 
 ## Two color tracks (decision 0003)
 

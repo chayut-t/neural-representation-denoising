@@ -205,8 +205,17 @@ def make_fixture(
             buf = _io.BytesIO()
             Image.fromarray(img, mode="RGB").save(buf, format="PNG")
             atomic_write_bytes(out_dir / rel, buf.getvalue(), overwrite=force)
+            # The fixture is regenerated fresh on each platform; its contract is
+            # decoded-pixel identity, not PNG-encoded-byte identity (zlib output varies
+            # by platform/library). Record only the platform-stable content digest.
             rows.append(
-                build_manifest_row(out_dir, out_dir / rel, split_id=f"synth-{i:04d}", role="train")
+                build_manifest_row(
+                    out_dir,
+                    out_dir / rel,
+                    split_id=f"synth-{i:04d}",
+                    role="train",
+                    include_file_hash=False,
+                )
             )
         write_manifest(rows, manifest, overwrite=force)
     except FileExistsError as exc:

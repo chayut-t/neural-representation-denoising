@@ -102,16 +102,30 @@ def test_validate_detects_split_leakage(tmp_path: Path) -> None:
     assert any("split leakage" in p for p in problems)
 
 
+def _row(split_id: str, role: str, rel: str, content_hex: str, **kw: object) -> ManifestRow:
+    """Build a hand-specified ManifestRow with sensible defaults for tests."""
+    defaults: dict[str, object] = {
+        "sha256": "",  # file-byte hash optional; leakage/dup key on content
+        "content_sha256": "sha256:" + content_hex * 64,
+        "format": "PNG",
+        "height": 8,
+        "width": 8,
+        "mode": "RGB",
+    }
+    defaults.update(kw)
+    return ManifestRow(split_id=split_id, role=role, relative_path=rel, **defaults)  # type: ignore[arg-type]
+
+
 def test_validate_detects_duplicate_ids() -> None:
-    row = ManifestRow("dup", "train", "a.png", "sha256:" + "0" * 64, "PNG", 8, 8, "RGB")
-    row2 = ManifestRow("dup", "train", "b.png", "sha256:" + "1" * 64, "PNG", 8, 8, "RGB")
+    row = _row("dup", "train", "a.png", "0")
+    row2 = _row("dup", "train", "b.png", "1")
     assert any("duplicate split_id" in p for p in validate_manifest([row, row2]))
 
 
 def test_validate_expected_counts_and_modes() -> None:
     rows = [
-        ManifestRow("a", "train", "a.png", "sha256:" + "0" * 64, "PNG", 8, 8, "RGB"),
-        ManifestRow("b", "train", "b.png", "sha256:" + "1" * 64, "JPEG", 8, 8, "L"),
+        _row("a", "train", "a.png", "0"),
+        _row("b", "train", "b.png", "1", format="JPEG", mode="L"),
     ]
     problems = validate_manifest(
         rows, expected_counts={"train": 3}, allowed_formats={"PNG"}, allowed_modes={"RGB"}
@@ -132,10 +146,21 @@ def test_inspect_corrupt_image_raises(tmp_path: Path) -> None:
 
 def test_validate_rejects_bad_role_and_digest_and_path() -> None:
     rows = [
-        ManifestRow("a", "unknown-role", "../../x.png", "not-a-digest", "PNG", 8, 8, "RGB"),
+        ManifestRow(
+            split_id="a",
+            role="unknown-role",
+            relative_path="../../x.png",
+            sha256="also-not-a-digest",
+            content_sha256="not-a-digest",
+            format="PNG",
+            height=8,
+            width=8,
+            mode="RGB",
+        ),
     ]
     problems = validate_manifest(rows)
     assert any("role" in p for p in problems)
+    assert any("content_sha256" in p for p in problems)
     assert any("sha256" in p for p in problems)
     assert any("unsafe relative_path" in p for p in problems)
 

@@ -36,6 +36,8 @@ from neural_repr.data.corruption import (
 from neural_repr.data.manifests import (
     ManifestRow,
     build_manifest_row,
+    image_content_digest,
+    image_content_digest_file,
     inspect_image,
     read_manifest,
     resolve_under_root,
@@ -107,6 +109,8 @@ __all__ = [
     "fit_whitening",
     "get_dataset",
     "global_normalize",
+    "image_content_digest",
+    "image_content_digest_file",
     "inspect_image",
     "invert_whitening",
     "linear_to_srgb",

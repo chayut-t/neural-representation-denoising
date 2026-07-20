@@ -141,9 +141,9 @@ def test_make_fixture_refuses_overwrite_without_force(tmp_path: Path) -> None:
 
 
 def test_make_fixture_deterministic(tmp_path: Path) -> None:
-    from neural_repr.data.records import sha256_file
+    from neural_repr.data.manifests import image_content_digest_file, read_manifest
 
-    def build(sub: str) -> str:
+    def build(sub: str) -> tuple[str, str]:
         out_dir = tmp_path / sub
         manifest = tmp_path / f"{sub}.csv"
         runner.invoke(
@@ -162,9 +162,15 @@ def test_make_fixture_deterministic(tmp_path: Path) -> None:
                 "0",
             ],
         )
-        return sha256_file(out_dir / "synth_0000.png")
+        row = read_manifest(manifest)[0]
+        # The fixture pins no file-byte hash (PNG encoding is not a cross-platform
+        # invariant); its contract is the decoded-pixel content digest.
+        assert row.sha256 == ""
+        return image_content_digest_file(out_dir / "synth_0000.png"), row.content_sha256
 
-    assert build("a") == build("b")  # byte-identical fixture across runs
+    (content_a, manifest_a), (content_b, manifest_b) = build("a"), build("b")
+    assert content_a == content_b  # pixel content is reproducible across runs
+    assert content_a == manifest_a == manifest_b  # and matches what the manifest records
 
 
 def test_audit_writes_report(tmp_path: Path) -> None:

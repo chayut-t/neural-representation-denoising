@@ -7,9 +7,13 @@ scientific evidence. It contains no restricted third-party imagery, so it can be
 generated in CI and its manifest committed.
 
 Every image is a deterministic function of ``(seed, index, size)`` — no global RNG
-state — so the fixture and its manifest are byte-identical on any platform (a Gate
-P4 reproducibility property). Images are returned as ``uint8`` channel-last RGB in
-``[0, 255]`` so they save as ordinary PNGs.
+state — so the generated **pixels** are identical on any platform (a Gate P4
+reproducibility property). That pixel identity, not PNG-encoded-byte identity, is the
+fixture's contract: PNG (zlib) encoding is not byte-identical across platforms or
+library builds even for identical pixels, so the committed manifest pins each image's
+``content_sha256`` (a digest over decoded pixels) and leaves the file-byte ``sha256``
+empty for this regenerable fixture (see ``neural_repr.data.manifests``). Images are
+returned as ``uint8`` channel-last RGB in ``[0, 255]`` so they save as ordinary PNGs.
 """
 
 from __future__ import annotations

@@ -1,0 +1,23 @@
+{
+  "skill_name": "create-context-and-worklog",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/create-context-and-worklog",
+      "expected_output": "worklog-<today>.md written to workspace.local/worklogs/ (backward-looking session record) and claude-context-<today>.md written to workspace.local/contexts/ (forward-looking resume brief). Facts (branch, HEAD short hash, test count, phase/gate status) verified against the live repo via git + pytest, not invented. Files kept distinct in purpose.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "/create-context-and-worklog",
+      "expected_output": "Produces both the worklog (workspace.local/worklogs/) and the resume-context file (workspace.local/contexts/), dated today, matching the established format. Scans workspace.local/ (excluding its own contexts/ and worklogs/ output dirs) and surfaces any pending a2a/other artifacts in the context file's NEXT section. Reports the two paths and notes they are git-ignored/local-only.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "/create-context-and-worklog (a worklog-<today>.md already exists in workspace.local/worklogs/ from earlier)",
+      "expected_output": "Does NOT overwrite the existing worklog; appends a new timestamped '## Update — HH:MM' section to it (and updates the context file as a current-state supersede). Honors the repo's no-overwrite discipline.",
+      "files": []
+    }
+  ]
+}

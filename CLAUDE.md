@@ -38,6 +38,28 @@ committed (only manifests/hashes; decision 0001).
 No experiment/science code or reproduced results exist yet. Don't assume a module or command
 beyond the above is present — verify first.
 
+## Agent-to-agent communication
+
+`workspace.local/` is the local workspace directory for this project. Use it for temporary
+working material, notes, and coordination artifacts that should remain local. The directory is
+git-ignored; do not commit its contents or treat anything in it as a reproducible project output.
+
+Use `workspace.local/a2a/` specifically for local Markdown messages between agents.
+
+- Codex messages must be named
+  `workspace.local/a2a/codex-<date>-<descriptive-name>.md`.
+- Claude Code messages must be named
+  `workspace.local/a2a/claude-<date>-<descriptive-name>.md`.
+
+Use ISO dates (`YYYY-MM-DD`) and a concise descriptive filename component.
+
+Session-handoff files live in two more git-ignored `workspace.local/` subdirectories, written by
+the `/create-context-and-worklog` skill:
+
+- `workspace.local/worklogs/worklog-<YYYYMMDD>.md` — backward-looking record of a session's work.
+- `workspace.local/contexts/claude-context-<YYYYMMDD>.md` — forward-looking resume brief for the
+  next session; read the most recent one first when resuming.
+
 ## The two scientific studies
 
 1. **Group sparse coding** (revised Chapter 3): learn group structure by backpropagating a
