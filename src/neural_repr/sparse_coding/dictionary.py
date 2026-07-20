@@ -43,6 +43,8 @@ def normalize_columns(
     """
     if on_zero not in {"raise", "keep"}:
         raise ValueError(f"on_zero must be 'raise' or 'keep', got {on_zero!r}")
+    if not eps > 0.0:  # a non-positive/NaN eps would let a zero column produce NaNs
+        raise ValueError(f"eps must be a positive real number, got {eps!r}")
     norms = torch.linalg.vector_norm(phi, dim=0, keepdim=True)
     if on_zero == "raise" and bool((norms <= eps).any()):
         raise ValueError(

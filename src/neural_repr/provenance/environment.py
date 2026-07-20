@@ -250,8 +250,14 @@ class ExecutionEnvironment:
 
 
 def environment_fingerprint(payload: dict[str, object]) -> str:
-    """Stable opaque fingerprint: SHA-256 over canonical JSON of sanitized fields."""
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    """Stable opaque fingerprint: SHA-256 over canonical JSON of sanitized fields.
+
+    Uses strict JSON (no ``default=`` coercion): a value that is not natively
+    JSON-serializable raises rather than being silently stringified into the
+    fingerprint, so an unsupported object cannot slip past the fingerprint boundary
+    (round-2 review finding 6).
+    """
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

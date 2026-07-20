@@ -61,12 +61,12 @@ _BINARY_SUFFIXES = {
     ".otf",
 }
 
-# EXACT tracked path exempt as a whole file: only the scanner itself, whose source
-# necessarily contains the pattern regexes (they are not real identifiers). The
-# shared pattern module (`leak_patterns.py`) is now scanned like any other file —
-# its example values are all in CANARIES and stripped line-by-line, so a *new*
-# non-canary internal URL added there is still reported.
-_SKIP_EXACT_PATHS = frozenset({"scripts/release/scan_public_leaks.py"})
+# No file is skipped wholesale (round-2 review finding 12): even the scanner's own
+# source is scanned, so a real secret cannot hide there. The few lines that
+# necessarily contain pattern-shaped text (regex definitions, this comment) carry an
+# explicit inline marker and are exempted LINE-BY-LINE, not by a whole-file skip.
+_LINE_EXEMPT_MARKER = "leak-scan-allow"  # noqa: leak-scan-allow (this definition line)
+_SKIP_EXACT_PATHS: frozenset[str] = frozenset()
 
 # The private operator note is git-ignored (via .git/info/exclude). If it is ever
 # tracked, that is itself the leak — fail unconditionally rather than scanning
@@ -112,6 +112,8 @@ def scan() -> list[str]:
         except (UnicodeDecodeError, FileNotFoundError):
             continue  # undecodable => treat as binary
         for lineno, line in enumerate(text.splitlines(), 1):
+            if _LINE_EXEMPT_MARKER in line:  # explicit inline exemption, line-by-line
+                continue
             probe = _strip_canaries(line)  # canary substrings removed; real leaks remain
             for name, pat in PATTERNS:
                 if pat.search(probe):

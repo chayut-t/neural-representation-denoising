@@ -24,6 +24,7 @@ from neural_repr.attractor.analysis import (
     growth_rates,
     is_asymptotically_stable,
     is_contractive,
+    is_nonexpansive,
     jacobian_generator,
     log_norm,
     spectral_abscissa,
@@ -52,7 +53,7 @@ from neural_repr.attractor.noise import (
     state_noise,
     uniform_weight_perturbation,
 )
-from neural_repr.attractor.trajectory import hold, run
+from neural_repr.attractor.trajectory import hold, move, run, write
 from neural_repr.attractor.weights import (
     antisymmetric_part,
     effective_weight,
@@ -77,11 +78,13 @@ __all__ = [
     "hold",
     "is_asymptotically_stable",
     "is_contractive",
+    "is_nonexpansive",
     "jacobian_generator",
     "line_centers",
     "log_norm",
     "log_rectifier",
     "mixed_code",
+    "move",
     "place_code",
     "ring_centers",
     "ring_code",
@@ -91,5 +94,6 @@ __all__ = [
     "step",
     "symmetric_part",
     "uniform_weight_perturbation",
+    "write",
     "write_mix",
 ]

@@ -51,6 +51,7 @@ def _point_checker_at(mod, tmp: Path) -> None:
     mod.INVENTORY = tmp / "docs" / "rewrite-2026-inventory.csv"
     mod.DISS = tmp / "dissertation"
     mod.FILE_MAP = tmp / "dissertation" / "FILE_MAP.csv"
+    mod.MIGRATION_EXPECTED = tmp / "dissertation" / "MIGRATION_EXPECTED.csv"
 
 
 def _read_map(tmp: Path) -> tuple[list[str], list[dict]]:
@@ -80,28 +81,59 @@ def test_clean_clone_passes(repo) -> None:
     _tmp, mod = repo
     assert mod.check_file_map() == []
     assert mod.check_inventory_covers_labels() == []
-    assert mod.check_manifest_sources_are_mapped() == []
+    assert mod.check_migration_fanout() == []
 
 
 def test_delete_target_and_row_together_detected(repo) -> None:
-    """A2: deleting a derived file AND its FILE_MAP row is caught via the frozen manifest.
+    """R2-7: deleting a derived file AND its FILE_MAP row is caught via the frozen tuples.
 
-    check_file_map() alone cannot see this (both the file and its row are gone, so the
-    tree-derived expected set no longer lists it), but the manifest still cites chap1.tex.
+    check_file_map() alone cannot see this (both the file and its row are gone), but the
+    immutable MIGRATION_EXPECTED tuple for that target is still required.
     """
     tmp, mod = repo
-    # Remove the derived target file...
     (tmp / "dissertation" / "chapters" / "chap1.tex").unlink()
-    # ...and its FILE_MAP row.
     fields, rows = _read_map(tmp)
     rows = [r for r in rows if r["dissertation_file"] != "chapters/chap1.tex"]
     _write_map(tmp, fields, rows)
 
-    # The tree-derived check is now blind to the loss...
-    assert mod.check_file_map() == []
-    # ...but the manifest-anchored check catches it.
-    problems = mod.check_manifest_sources_are_mapped()
+    assert mod.check_file_map() == []  # tree-derived check is blind
+    problems = mod.check_migration_fanout()
     assert any("chap1.tex" in p for p in problems)
+
+
+def test_delete_one_fanout_target_and_row_detected(repo) -> None:
+    """R2-7: the actual one-to-many case — thesis.tex -> main + 3 preamble files.
+
+    Deleting preamble/macros.tex AND its FILE_MAP row must be caught, even though
+    thesis.tex is still cited by the other three rows (the old source-basename check
+    missed this).
+    """
+    tmp, mod = repo
+    (tmp / "dissertation" / "preamble" / "macros.tex").unlink()
+    fields, rows = _read_map(tmp)
+    rows = [r for r in rows if r["dissertation_file"] != "preamble/macros.tex"]
+    _write_map(tmp, fields, rows)
+
+    problems = mod.check_migration_fanout()
+    assert any("preamble/macros.tex" in p for p in problems)
+
+
+def test_unexpected_fanout_tuple_detected(repo) -> None:
+    """An extra FILE_MAP row not in the expected tuples is flagged."""
+    tmp, mod = repo
+    fields, rows = _read_map(tmp)
+    rows.append(
+        {
+            "dissertation_file": "preamble/extra.tex",
+            "derivation": "translated-from",
+            "source_2026_file": "thesis.tex",
+            "source_sha256": rows[-1]["source_sha256"],
+            "current_sha256": "0" * 64,
+            "notes": "bogus",
+        }
+    )
+    _write_map(tmp, fields, rows)
+    assert any("unexpected migration tuple" in p for p in mod.check_migration_fanout())
 
 
 def test_removed_row_detected(repo) -> None:

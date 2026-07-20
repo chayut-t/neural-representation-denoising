@@ -162,6 +162,11 @@ def step(
     """
     if tau <= 0.0 or dt <= 0.0:
         raise ValueError("tau and dt must be positive")
+    # Validate beta UNCONDITIONALLY (not only on the write branch): a value outside
+    # [0, 1] — e.g. beta=-1 — must raise, never silently fall through to autonomous
+    # dynamics (round-2 review finding 8).
+    if not 0.0 <= beta <= 1.0:
+        raise ValueError("beta must lie in [0, 1] (1 writes the codeword, 0 runs autonomously)")
     if beta > 0.0 and code is None:
         raise ValueError("writing (beta > 0) requires a code to write toward")
 

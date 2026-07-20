@@ -15,6 +15,7 @@ rejected.
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -53,39 +54,38 @@ _ALLOWED_FIELDS: dict[str, type | tuple[type, ...]] = {
 # Closed nested schemas: the EXACT permitted keys inside each nested dict. Unknown
 # nested keys are rejected (so `runtime.hostname` / `torch.registry_uri` cannot ride
 # along). Values are type-checked; string values are additionally leak-scanned.
-_NESTED_ALLOWED_KEYS: dict[str, frozenset[str]] = {
-    "torch": frozenset(
-        {
-            "torch_version",
-            "torch_cuda_version",
-            "cuda_available",
-            "cudnn_version",
-            "driver_version",
-            "gpu_model_class",
-            "gpu_compute_capability",
-            "gpu_total_memory_gib",
-        }
-    ),
-    "runtime": frozenset(
-        {
-            "cpu_count",
-            "total_ram_gib",
-            "blas_impl",
-            "cxx_version",
-            "openmp_enabled",
-            "torch_num_threads",
-            "torch_num_interop_threads",
-            "torch_build_config_sha256",
-        }
-    ),
-    "determinism_flags": frozenset(
-        {"deterministic_algorithms", "cudnn_deterministic", "cudnn_benchmark"}
-    ),
-}
+# Each nested field is one of these kinds, so a value is type-checked (not merely
+# key-checked). "int" rejects bool (a bool is an int subtype); "float" accepts int
+# or float but rejects bool and non-finite; "str" values are leak-scanned; "digest"
+# must be a sha256 token. All fields are nullable (a fact may be unavailable).
+_FieldKind = str  # one of: "str", "digest", "int", "float", "bool"
 
-# Nested digest-shaped fields that, when present and non-None, must be sha256 tokens.
-_NESTED_DIGEST_FIELDS = {
-    "runtime": ("torch_build_config_sha256",),
+_NESTED_FIELD_SCHEMA: dict[str, dict[str, _FieldKind]] = {
+    "torch": {
+        "torch_version": "str",
+        "torch_cuda_version": "str",
+        "cuda_available": "bool",
+        "cudnn_version": "int",
+        "driver_version": "str",
+        "gpu_model_class": "str",
+        "gpu_compute_capability": "str",
+        "gpu_total_memory_gib": "float",
+    },
+    "runtime": {
+        "cpu_count": "int",
+        "total_ram_gib": "float",
+        "blas_impl": "str",
+        "cxx_version": "str",
+        "openmp_enabled": "bool",
+        "torch_num_threads": "int",
+        "torch_num_interop_threads": "int",
+        "torch_build_config_sha256": "digest",
+    },
+    "determinism_flags": {
+        "deterministic_algorithms": "bool",
+        "cudnn_deterministic": "bool",
+        "cudnn_benchmark": "bool",
+    },
 }
 
 
@@ -105,15 +105,40 @@ def _reject_infra_shaped_string(value: str, label: str) -> None:
         raise SchemaError(f"{label} looks infrastructure-shaped ([{hit}]): {value!r}")
 
 
+def _check_field(label: str, kind: _FieldKind, value: Any) -> None:
+    """Type/format-check one nested field value (None is always allowed)."""
+    if value is None:
+        return
+    if kind == "bool":
+        if not isinstance(value, bool):
+            raise SchemaError(f"{label} must be bool, got {type(value).__name__}")
+    elif kind == "int":
+        # bool is an int subtype in Python; reject it where an int is intended.
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise SchemaError(f"{label} must be int, got {type(value).__name__}")
+    elif kind == "float":
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise SchemaError(f"{label} must be a real number, got {type(value).__name__}")
+        if not math.isfinite(float(value)):
+            raise SchemaError(f"{label} must be finite, got {value!r}")
+    elif kind == "digest":
+        _require_sha256(value, label)
+    elif kind == "str":
+        if not isinstance(value, str):
+            raise SchemaError(f"{label} must be str, got {type(value).__name__}")
+        _reject_infra_shaped_string(value, label)
+    else:  # pragma: no cover - guards a typo in the schema table
+        raise SchemaError(f"{label}: unknown field kind {kind!r}")
+
+
 def _validate_nested(parent: str, obj: dict[str, Any]) -> None:
-    """Closed-schema check of a nested dict: known keys only, safe string values."""
-    allowed = _NESTED_ALLOWED_KEYS[parent]
-    unknown = set(obj) - allowed
+    """Closed field-schema check of a nested dict: known keys AND correct value types."""
+    schema = _NESTED_FIELD_SCHEMA[parent]
+    unknown = set(obj) - set(schema)
     if unknown:
         raise SchemaError(f"unknown nested field(s) in {parent!r}: {sorted(unknown)}")
     for key, value in obj.items():
-        if isinstance(value, str):
-            _reject_infra_shaped_string(value, f"{parent}.{key}")
+        _check_field(f"{parent}.{key}", schema[key], value)
 
 
 # reference_compatibility_status values that denote a canonical scientific record.
@@ -194,16 +219,10 @@ def validate_execution_record(record: dict[str, Any]) -> None:
         if not isinstance(name, str) or not isinstance(version, str):
             raise SchemaError(f"package_versions entry {name!r} is not str->str")
 
-    # Closed nested schemas: reject unknown nested keys + infra-shaped string values.
-    for parent in _NESTED_ALLOWED_KEYS:
+    # Closed nested field schemas: reject unknown nested keys AND wrong-typed values
+    # (bool-as-int, non-finite floats, containers), leak-scan strings, digest fields.
+    for parent in _NESTED_FIELD_SCHEMA:
         _validate_nested(parent, record[parent])
-
-    # Nested digest-shaped fields, when present, must be valid sha256 tokens.
-    for parent, keys in _NESTED_DIGEST_FIELDS.items():
-        nested = record.get(parent, {})
-        for k in keys:
-            if k in nested and nested[k] is not None:
-                _require_sha256(nested[k], f"{parent}.{k}")
 
     # Conditional rule: a public-reference / equivalence record is a canonical
     # scientific artifact, so it must carry the lock identity and non-empty

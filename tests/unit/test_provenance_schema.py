@@ -143,6 +143,46 @@ def test_infra_shaped_nested_value_rejected() -> None:
         validate_execution_record(rec)
 
 
+@pytest.mark.parametrize(
+    ("parent", "key", "bad_value"),
+    [
+        ("runtime", "cpu_count", "not-an-integer"),  # str where int expected
+        ("runtime", "cpu_count", True),  # bool where int expected (bool is int subtype)
+        ("runtime", "total_ram_gib", float("inf")),  # non-finite float
+        ("runtime", "total_ram_gib", "16"),  # str where float expected
+        ("torch", "cuda_available", 1),  # int where bool expected
+        ("torch", "gpu_total_memory_gib", [1, 2]),  # container where float expected
+        ("determinism_flags", "cudnn_benchmark", "true"),  # str where bool expected
+        ("runtime", "torch_build_config_sha256", "deadbeef"),  # malformed digest
+    ],
+)
+def test_nested_wrong_type_rejected(parent: str, key: str, bad_value: object) -> None:
+    """R2 finding 6: nested values are type-checked, not just key-checked."""
+    rec = _valid_record()
+    rec[parent] = dict(rec[parent])
+    rec[parent][key] = bad_value
+    _reseal(rec)
+    with pytest.raises(SchemaError):
+        validate_execution_record(rec)
+
+
+def test_nested_none_is_allowed() -> None:
+    """A missing fact is legitimately null; None passes the field check."""
+    rec = _valid_record()
+    rec["torch"] = dict(rec["torch"])
+    rec["torch"]["cudnn_version"] = None
+    _reseal(rec)
+    validate_execution_record(rec)  # must not raise
+
+
+def test_fingerprint_rejects_unserializable_object() -> None:
+    """R2 finding 6: the fingerprint uses strict JSON (no default=str coercion)."""
+    from neural_repr.provenance.environment import environment_fingerprint
+
+    with pytest.raises(TypeError):
+        environment_fingerprint({"bad": object()})
+
+
 def test_public_reference_requires_lock_digest() -> None:
     """A1: a public-reference record with null uv_lock_sha256 is rejected."""
     rec = collect_execution_environment(

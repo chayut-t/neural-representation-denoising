@@ -38,10 +38,9 @@ def test_system_info_emits_fingerprint() -> None:
 
 
 # Invoked placeholder operations must FAIL (non-zero), so automation cannot mistake
-# a not-yet-implemented command for a completed run (codex P2).
+# a not-yet-implemented command for a completed run (codex P2). The `data` CLI is
+# implemented in Phase 4, so it is no longer a placeholder here.
 _PLACEHOLDER_INVOCATIONS = [
-    ("neural_repr.cli.data", ["download", "div2k"]),
-    ("neural_repr.cli.data", ["check"]),
     ("neural_repr.cli.train", ["run", "sparse/toy"]),
     ("neural_repr.cli.eval", ["run", "some-run-id"]),
     ("neural_repr.cli.aggregate", ["run", "some-manifest"]),

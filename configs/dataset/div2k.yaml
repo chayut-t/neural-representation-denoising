@@ -1,0 +1,12 @@
+# DIV2K primary dataset (decision 0001). Bytes are never committed; only manifests
+# and per-file hashes are. Download from the official source after local terms
+# acceptance (see data/README.md).
+name: div2k
+official_url: https://data.vision.ee.ethz.ch/cvl/DIV2K/
+terms_acceptance_token: --accept-academic-research-terms
+manifest: data/manifests/div2k.csv
+splits:
+  train: [1, 720]
+  val: [721, 800]
+  test: [801, 900]
+file_extension: .png

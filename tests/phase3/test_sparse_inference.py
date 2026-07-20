@@ -83,6 +83,12 @@ def test_normalize_columns_rejects_bad_on_zero() -> None:
         normalize_columns(torch.randn(4, 3, dtype=torch.float64), on_zero="nope")
 
 
+def test_normalize_columns_rejects_nonpositive_eps() -> None:
+    # R2-11: eps must be positive/finite, else a zero column could produce NaNs.
+    with pytest.raises(ValueError, match="positive real"):
+        normalize_columns(torch.randn(4, 3, dtype=torch.float64), eps=0.0)
+
+
 def test_data_grad_vs_finite_difference() -> None:
     phi = _dictionary()
     x = torch.randn(6, dtype=torch.float64)

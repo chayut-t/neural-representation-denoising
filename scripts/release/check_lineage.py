@@ -4,11 +4,11 @@
 Checks:
 1. Inventory coverage — every figure/table label in the frozen 2026 source has a row in
    docs/rewrite-2026-inventory.csv (nothing dropped in the lineage).
-2. Manifest-source coverage — anchored on the IMMUTABLE frozen-2026 MANIFEST.sha256: every
-   required content source (chapters/abstract/appendix/bib/thesis driver) must be cited by at
-   least one FILE_MAP row. Because the manifest cannot change, deleting a derived target AND its
-   FILE_MAP row together is detected here (the tree-derived expected set in check 3 cannot see
-   that case — both the file and its row are gone).
+2. Migration fan-out — the exact (source, target, derivation) tuples in the IMMUTABLE
+   dissertation/MIGRATION_EXPECTED.csv must match BOTH FILE_MAP and the current tree. Because the
+   expected tuples are anchored (not derived from the mutable tree/FILE_MAP), deleting one target
+   of a one-to-many source (e.g. thesis.tex -> main.tex + 3 preamble files) AND its FILE_MAP row
+   is still detected — the tuple for that specific target goes missing from both.
 3. FILE_MAP completeness — the set of dissertation files DERIVED from the 2026 baseline is
    defined by rule; FILE_MAP must contain exactly one valid row per such file (no missing rows
    — so a deletion is detected — no duplicates, no rows for unexpected targets).
@@ -36,27 +36,15 @@ MANIFEST_2026 = REPO_ROOT / "legacy" / "rewrite-2026" / "MANIFEST.sha256"
 INVENTORY = REPO_ROOT / "docs" / "rewrite-2026-inventory.csv"
 DISS = REPO_ROOT / "dissertation"
 FILE_MAP = DISS / "FILE_MAP.csv"
+# Immutable expected migration fan-out: the exact (source, target, derivation) tuples
+# the 2026 baseline maps to. Anchored here (not derived from the mutable tree/FILE_MAP)
+# so deleting one target of a one-to-many source AND its FILE_MAP row is still detected
+# (round-2 review finding 7).
+MIGRATION_EXPECTED = DISS / "MIGRATION_EXPECTED.csv"
 
 _LABEL_RE = re.compile(r"\\label\{((?:fig|tab):[^}]+)\}")
 _VALID_DERIVATIONS = {"byte-identical-copy", "translated-from"}
 
-# Content source files (in the frozen 2026 MANIFEST) that MUST be represented in the
-# working edition. Anchored on the immutable manifest — NOT the mutable dissertation
-# tree — so deleting a target file *and* its FILE_MAP row together is still detected.
-# Excludes build scripts (doit.sh, .gitignore), figures (images/), and the built PDF.
-_REQUIRED_SOURCE_BASENAMES = frozenset(
-    {
-        "abstract.tex",
-        "appendix.tex",
-        "chap1.tex",
-        "chap2.tex",
-        "chap3.tex",
-        "chap4.tex",
-        "chap5.tex",
-        "references.bib",
-        "thesis.tex",
-    }
-)
 _EXPECTED_COLUMNS = [
     "dissertation_file",
     "derivation",
@@ -106,35 +94,59 @@ def _manifest_source_files() -> set[str]:
     return names
 
 
-def _file_map_cited_sources() -> set[str]:
-    """Set of ``source_2026_file`` basenames cited by any FILE_MAP row."""
+def _expected_tuples() -> set[tuple[str, str, str]]:
+    """Immutable expected ``(source, target, derivation)`` migration tuples."""
+    with MIGRATION_EXPECTED.open(encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        expected = {
+            (r["source_2026_file"], r["dissertation_file"], r["derivation"]) for r in reader
+        }
+    return expected
+
+
+def _file_map_tuples() -> set[tuple[str, str, str]]:
+    """``(source, target, derivation)`` tuples declared by FILE_MAP rows."""
     with FILE_MAP.open(encoding="utf-8") as fh:
-        return {Path(row["source_2026_file"]).name for row in csv.DictReader(fh)}
+        return {
+            (r["source_2026_file"], r["dissertation_file"], r["derivation"])
+            for r in csv.DictReader(fh)
+        }
 
 
-def check_manifest_sources_are_mapped() -> list[str]:
-    """Every required content source in the frozen manifest must be cited by FILE_MAP.
+def check_migration_fanout() -> list[str]:
+    """Enforce the exact immutable (source, target, derivation) fan-out.
 
-    This is the immutable-source-of-truth direction (independent of the current
-    dissertation/ tree): if a derived target and its FILE_MAP row are BOTH deleted,
-    the source it derived from is no longer cited here, so this check fails — closing
-    the delete-both gap that a tree-derived expected-set cannot see.
+    Compares the frozen expected tuples against BOTH ``FILE_MAP`` and the current tree,
+    so a one-to-many source (e.g. ``thesis.tex`` -> main + 3 preamble files) is fully
+    protected: deleting one of its targets AND its FILE_MAP row still fails here because
+    the expected tuple for that specific target is missing from both (round-2 finding 7).
     """
     problems: list[str] = []
+    expected = _expected_tuples()
+
+    # Every required source must exist in the frozen manifest (baseline unchanged).
     manifest_names = _manifest_source_files()
-    missing_required = _REQUIRED_SOURCE_BASENAMES - manifest_names
-    if missing_required:
+    for src in sorted({s for s, _, _ in expected}):
+        if src not in manifest_names:
+            problems.append(f"expected source {src!r} absent from the frozen 2026 manifest")
+
+    # FILE_MAP must declare exactly the expected tuples (no missing, no extra).
+    declared = _file_map_tuples()
+    for src, tgt, deriv in sorted(expected - declared):
         problems.append(
-            f"frozen manifest is missing expected source files: {sorted(missing_required)} "
-            "(manifest drift — the baseline itself changed)"
+            f"FILE_MAP is missing expected migration tuple ({src} -> {tgt}, {deriv}) "
+            "(a derived target and/or its lineage row was dropped)"
         )
-    cited = _file_map_cited_sources()
-    for src in sorted(_REQUIRED_SOURCE_BASENAMES & manifest_names):
-        if src not in cited:
-            problems.append(
-                f"frozen-2026 source {src} is not cited by any FILE_MAP row "
-                "(a derived file and its lineage row were dropped together)"
-            )
+    for src, tgt, deriv in sorted(declared - expected):
+        problems.append(
+            f"FILE_MAP declares an unexpected migration tuple ({src} -> {tgt}, {deriv})"
+        )
+
+    # Every expected target must exist on disk (delete-both of a fan-out target).
+    for _src, tgt, _deriv in sorted(expected):
+        if not (DISS / tgt).is_file():
+            problems.append(f"expected migration target missing on disk: {tgt}")
+
     return problems
 
 
@@ -208,17 +220,15 @@ def check_file_map() -> list[str]:
 
 
 def main() -> int:
-    problems = (
-        check_inventory_covers_labels() + check_manifest_sources_are_mapped() + check_file_map()
-    )
+    problems = check_inventory_covers_labels() + check_migration_fanout() + check_file_map()
     if problems:
         print("Lineage check FAILED:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
     print(
-        "[check-lineage] inventory covers all 2026 figures/tables; every frozen-manifest "
-        "source is mapped; FILE_MAP complete + consistent."
+        "[check-lineage] inventory covers all 2026 figures/tables; the exact (source, target, "
+        "derivation) migration fan-out matches FILE_MAP and the tree; FILE_MAP consistent."
     )
     return 0
 

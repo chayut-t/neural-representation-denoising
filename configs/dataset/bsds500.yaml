@@ -1,0 +1,9 @@
+# BSDS500 external generalization set (decision 0001): official fixed TEST split
+# only, non-commercial research/education terms. Bytes never committed.
+name: bsds500
+official_url: https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html
+terms_acceptance_token: --accept-noncommercial-research-terms
+manifest: data/manifests/bsds500.csv
+splits:
+  test: enumerated  # non-contiguous IDs; the manifest enumerates files directly
+file_extension: .jpg

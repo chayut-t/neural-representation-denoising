@@ -13,10 +13,12 @@ The goal is a public repository that regenerates every quantitative result, tabl
 in a revised dissertation from documented public data and versioned code. See
 `MODERNIZATION_AND_REPRODUCIBILITY_PLAN.md` for the governing, phase-gated spec.
 
-> **Status:** Phases 0–2 complete (repository scaffolding, locked environment, public
-> containers, working dissertation build, and CI are in place). Phase 3 (formalize + test the
-> mathematics) is next. No experiments have been run yet; the study subcommands are
-> placeholders that exit non-zero until their phase implements them.
+> **Status:** Phases 0–3 complete (repository scaffolding, locked environment, public
+> containers, working dissertation build, CI, and the formalized/tested mathematics for both
+> studies are in place). Phase 4 (data pipeline) code is complete, but **Gate P4 is open**: the
+> real DIV2K/BSDS500 manifests and their audit require authorized download and are deferred to
+> Phase 5 entry (decision 0010). No experiments have been run yet; the `train`/`eval`/`aggregate`/
+> `figure` subcommands are placeholders that exit non-zero until their phase implements them.
 
 ## Quick start (developer)
 

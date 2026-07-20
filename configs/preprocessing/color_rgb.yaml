@@ -1,0 +1,19 @@
+# color_rgb denoising track (decision 0003). Normalized RGB patches, NO spatial
+# whitening; AWGN at fixed sigma; overlapping-patch reassembly for full-image PSNR/SSIM.
+track: color_rgb
+color_space: rgb
+linearize_srgb: false          # values are gamma-encoded sRGB (documented, not implicit)
+remove_patch_dc: false
+whiten: null                   # denoising track uses no spatial whitening
+normalization: per_patch
+patch:
+  size: 16
+  stride: 8
+  n_random: 0                  # denoising uses grid patches + reassembly, not random crops
+  border: 0
+  augment: false
+corruption:
+  mode: sigma
+  sigma_over_255: [15, 25, 50] # sigma = 15/255, 25/255, 50/255
+reassembly:
+  blend: hann                  # normalized raised-cosine window

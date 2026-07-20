@@ -38,8 +38,8 @@ _RESAMPLE_MODES: tuple[str, ...] = get_args(ResampleMode)
 
 
 def _check_sigma(sigma: float) -> None:
-    if sigma < 0.0:
-        raise ValueError(f"sigma must be non-negative, got {sigma}")
+    if not sigma >= 0.0:  # rejects negatives AND NaN (NaN >= 0 is False)
+        raise ValueError(f"sigma must be a non-negative real number, got {sigma!r}")
 
 
 def state_noise(

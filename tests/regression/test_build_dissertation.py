@@ -129,9 +129,15 @@ def test_keep_going_still_nonzero_but_preserves_diagnostics(tmp_path: Path, monk
     rc = mod.build("ci-fail", keep_going=True)
     assert rc == 1  # still non-zero
     assert not (mod.BUILDS / "ci-fail").exists()  # not published as a success
-    failed = mod.BUILDS / "ci-fail.failed"
+    failed = mod.BUILDS / "ci-fail.failed-0"
     assert failed.exists()
     manifest = failed / "build-manifest.json"
     assert manifest.exists()
     assert '"pdf_sha256": null' in manifest.read_text()  # never claims a PDF
     assert '"succeeded": false' in manifest.read_text()
+
+    # A second failed attempt must NOT delete the first: it gets a fresh unique ID.
+    rc2 = mod.build("ci-fail", keep_going=True)
+    assert rc2 == 1
+    assert (mod.BUILDS / "ci-fail.failed-0").exists()  # prior attempt preserved
+    assert (mod.BUILDS / "ci-fail.failed-1").exists()  # new attempt is a new ID

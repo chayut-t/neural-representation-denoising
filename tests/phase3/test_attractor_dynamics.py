@@ -164,6 +164,114 @@ def test_write_mix_rejects_beta_out_of_range() -> None:
 # --- multi-direction transport (2D) ------------------------------------------
 
 
+def test_step_rejects_negative_beta() -> None:
+    """R2-8: beta is validated unconditionally; beta=-1 must raise, not run autonomously."""
+    n = 6
+    s, a = _weights(n)
+    phi = Nonlinearity()
+    u = torch.randn(n, dtype=torch.float64)
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        step(u, s_mat=s, a_mats=a, velocity=0.0, alpha=1.0, tau=5.0, dt=1.0, phi=phi, beta=-1.0)
+
+
+def test_run_rejects_negative_beta() -> None:
+    n = 6
+    s, a = _weights(n)
+    phi = Nonlinearity()
+    u = torch.randn(n, dtype=torch.float64)
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        run(
+            u,
+            s_mat=s,
+            a_mats=a,
+            velocity=0.0,
+            alpha=1.0,
+            tau=5.0,
+            dt=1.0,
+            phi=phi,
+            n_steps=3,
+            beta=-1.0,
+        )
+
+
+def test_hold_multidirectional() -> None:
+    """R2-8: hold works with multiple transport directions (zero velocity per direction)."""
+    n = 6
+    s = symmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    ax = antisymmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    ay = antisymmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    phi = Nonlinearity()
+    u0 = torch.randn(n, dtype=torch.float64)
+    with torch.no_grad():
+        out = hold(u0, s_mat=s, a_mats=[ax, ay], alpha=10.0, tau=5.0, dt=1.0, phi=phi, n_steps=5)
+    assert out.shape == (n,)
+
+
+def test_write_and_move_helpers() -> None:
+    """R2-8: the advertised write/move helpers exist and behave."""
+    from neural_repr.attractor import move, write
+
+    n = 16
+    s = torch.zeros(n, n, dtype=torch.float64)
+    a = antisymmetric_part(torch.randn(n, n, dtype=torch.float64))
+    phi = Nonlinearity()
+    code = place_code(0.5, n, width=0.1)
+    with torch.no_grad():
+        # write with beta=1 drives activity toward the codeword.
+        u_written = write(
+            torch.zeros(n, dtype=torch.float64),
+            code,
+            s_mat=s,
+            a_mats=a,
+            alpha=1.0,
+            tau=5.0,
+            dt=1.0,
+            phi=phi,
+            n_steps=1,
+        )
+        # move accepts a scalar velocity and runs autonomously.
+        u_moved = move(
+            u_written, 1.0, s_mat=s, a_mats=a, alpha=1.0, tau=5.0, dt=0.1, phi=phi, n_steps=3
+        )
+    assert u_written.shape == (n,) and u_moved.shape == (n,)
+    with pytest.raises(ValueError, match="beta in"):
+        write(
+            torch.zeros(n, dtype=torch.float64),
+            code,
+            s_mat=s,
+            a_mats=a,
+            alpha=1.0,
+            tau=5.0,
+            dt=1.0,
+            phi=phi,
+            n_steps=1,
+            beta=0.0,
+        )
+
+
+def test_move_multidirectional() -> None:
+    from neural_repr.attractor import move
+
+    n = 6
+    s = symmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    ax = antisymmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    ay = antisymmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))
+    phi = Nonlinearity()
+    with torch.no_grad():
+        out = move(
+            torch.randn(n, dtype=torch.float64),
+            [1.0, -2.0],
+            s_mat=s,
+            a_mats=[ax, ay],
+            alpha=1.0,
+            tau=5.0,
+            dt=0.5,
+            phi=phi,
+            n_steps=2,
+        )
+    assert out.shape == (n,)
+
+
 def test_step_multi_direction_matches_sum() -> None:
     n = 6
     s = symmetric_part(0.1 * torch.randn(n, n, dtype=torch.float64))

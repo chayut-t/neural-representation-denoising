@@ -20,6 +20,7 @@ from neural_repr.attractor import (
     growth_rates,
     is_asymptotically_stable,
     is_contractive,
+    is_nonexpansive,
     jacobian_generator,
     log_norm,
     spectral_abscissa,
@@ -167,6 +168,28 @@ def test_transient_amplification_then_decay_for_nonnormal_stable() -> None:
     assert norms[1] > norms[0]  # transient growth
     assert norms[2] > 10.0 * norms[0]  # large transient amplification
     assert norms[-1] < norms[0]  # eventual decay (asymptotic stability)
+
+
+def test_contraction_boundary_strict_vs_nonexpansive() -> None:
+    """R2-11: at the norm-preserving boundary (mu_2=0), strict contraction is False but
+    nonexpansive is True.
+
+    Build W so that M = -I + W has log-norm exactly 0: take W = I + A with A
+    antisymmetric, so the symmetric part of M = -I + I + A = A is 0 -> mu_2 = 0.
+    """
+    a = antisymmetric_part(torch.randn(5, 5, dtype=torch.float64))
+    w = torch.eye(5, dtype=torch.float64) + a
+    assert log_norm(w) == pytest.approx(0.0, abs=1e-9)
+    assert not is_contractive(w)  # strict: boundary is not < 0
+    assert is_nonexpansive(w)  # boundary-inclusive: <= 0
+
+
+@pytest.mark.parametrize("bad_tol", [-0.1, float("nan")])
+def test_stability_tolerances_must_be_nonnegative(bad_tol: float) -> None:
+    w = torch.eye(3, dtype=torch.float64) * 0.5
+    for fn in (is_asymptotically_stable, is_contractive, is_nonexpansive):
+        with pytest.raises(ValueError, match="non-negative"):
+            fn(w, tol=bad_tol)
 
 
 def test_jacobian_generator_absorbs_activation_derivative() -> None:

@@ -85,12 +85,22 @@ def test_bare_account_id_forms_flagged_but_plain_number_not() -> None:
     assert not any(pat.search(plain) for _, pat in scanner.PATTERNS)
 
 
-def test_leak_patterns_module_is_scanned_not_skipped() -> None:
-    """The shared pattern module is in scope (only the scanner script is skipped) (A5)."""
+def test_no_whole_file_skips() -> None:
+    """R2 finding 12: NO file is skipped wholesale — not even the scanner's own source.
+
+    Exemptions are line-level (an inline marker), so a real secret cannot hide in a
+    whole-file-skipped source. The shared pattern module and the scanner itself are
+    both in scope.
+    """
+    assert frozenset() == scanner._SKIP_EXACT_PATHS
     scanned = {p.relative_to(scanner.REPO_ROOT).as_posix() for p in scanner._tracked_files()}
     assert "src/neural_repr/provenance/leak_patterns.py" in scanned
-    only_skip = "scripts/release/scan_public_leaks.py"
-    assert frozenset({only_skip}) == scanner._SKIP_EXACT_PATHS
+    assert "scripts/release/scan_public_leaks.py" in scanned
+
+
+def test_line_marker_exempts_only_that_line() -> None:
+    """The inline exemption marker skips exactly its line, not the whole file."""
+    assert scanner._LINE_EXEMPT_MARKER == "leak-scan-allow"
 
 
 def test_non_canary_internal_url_would_be_detected() -> None:

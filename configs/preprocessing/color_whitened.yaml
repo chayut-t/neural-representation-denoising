@@ -1,0 +1,20 @@
+# color_whitened representation track (decision 0003). Whitened opponent-color
+# space for basis/group/topography and thesis-comparable SNR (0/3/6 dB).
+track: color_whitened
+color_space: opponent          # invertible orthonormal opponent-color basis
+linearize_srgb: false          # operate on gamma-encoded sRGB unless an ablation says otherwise
+remove_patch_dc: true
+whiten:
+  method: zca
+  eps: 1.0e-5
+  fit_on: train                # training images ONLY (Gate P4 leakage rule)
+normalization: global          # divide by the training-set RMS (baseline App B)
+patch:
+  size: 16
+  stride: 8
+  n_random: 256
+  border: 0
+  augment: true                # flips + 90-degree rotations only (no color jitter)
+corruption:
+  mode: snr
+  snr_db: [0.0, 3.0, 6.0]

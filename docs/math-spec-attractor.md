@@ -69,11 +69,19 @@ machine zero in `test_symmetric_part_exact` / `test_antisymmetric_part_exact`, a
 
 ## 4. Operations: write, hold, read, move [§4.4]
 
-- **Write** [`eq:attractor-write`]: `f_eff_t = (1 - beta_t) phi(u_t) + beta_t c(x_write)`,
-  `beta_t in {0, 1}`. `beta = 1` writes the codeword; `beta = 0` runs autonomously.
-- **Hold**: `v = 0`, no write input — maintains state (`hold`).
+- **Write** (`write`) [`eq:attractor-write`]: `f_eff_t = (1 - beta_t) phi(u_t) + beta_t c(x_write)`,
+  `beta_t in [0, 1]`. `beta = 1` writes the codeword; `beta = 0` runs autonomously.
+  `beta` is validated **unconditionally** in `step` — a value outside `[0, 1]` (e.g.
+  `-1`) raises rather than silently running autonomous dynamics.
+- **Hold** (`hold`): zero velocity, no write input — maintains state.
 - **Read**: decode `x_hat` from activity (§6).
-- **Move**: `v != 0` — the antisymmetric term transports the pattern.
+- **Move** (`move`): nonzero velocity — the antisymmetric term transports the pattern.
+
+All four (plus the general `run`) are **multidirectional**: `a_mats`/`velocity` take a
+single matrix/scalar (1D) or matching sequences (2D+); `hold` supplies a zero velocity
+per transport direction. **Velocity is constant per call** in this Phase 3
+formalization — the notation `v_{d,t}` (per-time-step velocity) is a documented future
+extension realized by a caller-owned `step` loop.
 
 Velocity reversal negates only the transport contribution:
 `0.5 (step(+v) + step(-v)) == step(0)`

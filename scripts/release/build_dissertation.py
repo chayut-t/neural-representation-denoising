@@ -128,9 +128,13 @@ def build(build_id: str | None, *, keep_going: bool) -> int:
                 file=sys.stderr,
             )
             if keep_going:
-                failed_dir = out_dir.with_name(out_dir.name + ".failed")
-                if failed_dir.exists():
-                    shutil.rmtree(failed_dir)
+                # Never delete a prior failed attempt: pick the next free unique ID
+                # (plan §0.3 — no overwrite, even for diagnostics).
+                attempt = 0
+                failed_dir = out_dir.with_name(f"{out_dir.name}.failed-{attempt}")
+                while failed_dir.exists():
+                    attempt += 1
+                    failed_dir = out_dir.with_name(f"{out_dir.name}.failed-{attempt}")
                 shutil.move(str(tmp_dir), str(failed_dir))
                 print(
                     f"[build-dissertation] preserved diagnostics in {failed_dir}", file=sys.stderr

@@ -1,0 +1,13 @@
+source_2026_file,dissertation_file,derivation
+abstract.tex,frontmatter/abstract.tex,byte-identical-copy
+chap1.tex,chapters/chap1.tex,byte-identical-copy
+chap2.tex,chapters/chap2.tex,byte-identical-copy
+chap3.tex,chapters/chap3.tex,byte-identical-copy
+chap4.tex,chapters/chap4.tex,byte-identical-copy
+chap5.tex,chapters/chap5.tex,byte-identical-copy
+appendix.tex,appendices/appendix.tex,byte-identical-copy
+references.bib,bibliography/references.bib,byte-identical-copy
+thesis.tex,main.tex,translated-from
+thesis.tex,preamble/packages.tex,translated-from
+thesis.tex,preamble/style.tex,translated-from
+thesis.tex,preamble/macros.tex,translated-from

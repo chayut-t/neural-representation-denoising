@@ -91,25 +91,47 @@ def log_norm(w_lin: torch.Tensor) -> float:
     return float(torch.linalg.eigvalsh(sym).max().item())
 
 
-def is_asymptotically_stable(w_lin: torch.Tensor, *, tol: float = 0.0) -> bool:
-    """True iff every mode eventually decays (spectral abscissa ``< -tol``).
+def _check_tol(tol: float) -> None:
+    if not (tol >= 0.0):  # also rejects NaN, since `NaN >= 0` is False
+        raise ValueError(f"tol must be a non-negative real number, got {tol!r}")
 
-    This is asymptotic linear stability, **not** monotone Euclidean contraction: a
-    nonnormal ``M`` can satisfy this while its norm grows transiently (use
-    :func:`is_contractive` for the stronger property).
+
+def is_asymptotically_stable(w_lin: torch.Tensor, *, tol: float = 0.0) -> bool:
+    """True iff every mode strictly decays (spectral abscissa ``< -tol``).
+
+    Asymptotic linear stability, **not** monotone Euclidean contraction: a nonnormal
+    ``M`` can satisfy this while its norm grows transiently (use :func:`is_contractive`
+    for the stronger property). ``tol >= 0`` is a strictness margin (``tol=0`` is the
+    open condition ``< 0``); it is required non-negative.
     """
+    _check_tol(tol)
     return spectral_abscissa(w_lin) < -tol
 
 
 def is_contractive(w_lin: torch.Tensor, *, tol: float = 0.0) -> bool:
-    """True iff the 2-norm is monotonically nonincreasing (log-norm ``< -tol``).
+    """True iff the 2-norm is **strictly** contracting (log-norm ``mu_2(M) < -tol``).
 
     Tests the largest eigenvalue of the symmetric part ``(M + M^T)/2`` (the log-norm
-    ``mu_2(M)``), which is the correct condition for Euclidean contraction of the
-    generally *nonnormal* generator ``M = -I + W_lin``. Strictly stronger than
+    ``mu_2(M)``), the correct condition for Euclidean contraction of the generally
+    *nonnormal* generator ``M = -I + W_lin``. This is **strict** contraction: a
+    norm-preserving flow at the boundary (``mu_2 = 0``) is not contractive and returns
+    False. For the nonexpansive (nonincreasing, ``mu_2 <= 0``) boundary use
+    :func:`is_nonexpansive`. ``tol >= 0`` required. Strictly stronger than
     :func:`is_asymptotically_stable`.
     """
+    _check_tol(tol)
     return log_norm(w_lin) < -tol
+
+
+def is_nonexpansive(w_lin: torch.Tensor, *, tol: float = 0.0) -> bool:
+    """True iff the 2-norm is nonincreasing (log-norm ``mu_2(M) <= tol``).
+
+    The boundary-inclusive counterpart of :func:`is_contractive`: a norm-preserving
+    flow (``mu_2 = 0``) is nonexpansive but not strictly contractive. ``tol >= 0`` is a
+    small nonnegative slack.
+    """
+    _check_tol(tol)
+    return log_norm(w_lin) <= tol
 
 
 def euler_step_matrix(a_mat: torch.Tensor, dt: float) -> torch.Tensor:
